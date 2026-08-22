@@ -801,15 +801,18 @@ async function useMove(att,def,moveName,side){
   if(def._charging&&CHARGE_INVULN.has(M(def._charging).ko)&&mo.tg==='foe'){msg(`${att.ko}의 공격은 ${def.ko}에게 닿지 않았다!`);sfx('miss');await sleep(700);return;}
   // 방음: 소리 기술 무효
   if(hasAbil(def,'soundproof')&&SOUND_MOVES.has(mo.ko)){msg(`${def.ko}은(는) 방음으로 ${mo.ko}을(를) 막아냈다!`);await sleep(750);return;}
-  // 명중
+  // 명중 (자기대상·필중기는 명중판정 없음 → 상대 회피율 영향 안 받음)
+  const neverMiss=(mo.ac==null)||(mo.tg==='self')||mo.struggle;
   let acc=mo.ac||100;
   if(hasItem(att,'Wide Lens'))acc*=1.1;
   if(hasAbil(att,'compound-eyes'))acc*=1.3;
   if(hasItem(def,'BrightPowder'))acc*=0.9;
+  if(hasAbil(def,'sand-veil')&&S.weather==='sand')acc*=0.8;   // 모래숨기: 모래바람 회피↑
+  if(hasAbil(def,'snow-cloak')&&S.weather==='hail')acc*=0.8;  // 눈숨기: 싸라기눈 회피↑
   const lockedOn=att.lockOn; att.lockOn=false; // 마음의눈: 이번 공격 필중
   const evaMul=def.foresight?1:stageMul(def.stage.eva); // 꿰뚫어보기: 회피 무시
   const accMod=stageMul(att.stage.acc)/evaMul;
-  if(!lockedOn && Math.random()*100>acc*accMod){msg(`${att.ko}의 공격은 빗나갔다!`);sfx('miss');await sleep(650);
+  if(!neverMiss && !lockedOn && Math.random()*100>acc*accMod){msg(`${att.ko}의 공격은 빗나갔다!`);sfx('miss');await sleep(650);
     if(CRASH_MOVES.has(mo.ko)&&!hasAbil(att,'magic-guard')){att.hp=Math.max(0,att.hp-Math.floor(att.maxHp/2));renderBattle();msg(`${att.ko}은(는) 착지에 실패해 데미지를 입었다!`);await sleep(700);}
     return;}
 
