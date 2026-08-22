@@ -779,6 +779,12 @@ async function useMove(att,def,moveName,side){
   // 속이기: 등장 첫 턴에만 성공
   if(mo.ko==='속이기'&&!att._fakeOutOK){msg(`${att.ko}의 속이기는 실패했다!`);await sleep(800);att._fakeOutOK=false;return;}
   att._fakeOutOK=false; // 이번 행동으로 첫 턴 종료
+  // 꿈먹기: 상대가 자고 있어야 함
+  if(mo.ko==='꿈먹기'&&def.status!=='slp'){msg(`${def.ko}은(는) 자고 있지 않다! 꿈먹기는 실패했다!`);await sleep(850);return;}
+  // 코골기: 자신이 자고 있어야 함
+  if(mo.ko==='코골기'&&att.status!=='slp'){msg(`${att.ko}은(는) 자고 있지 않아 코골기에 실패했다!`);await sleep(850);return;}
+  // 내던지기: 도구가 있어야 함 (도구 소모)
+  if(mo.ko==='내던지기'){if(!att.item){msg(`${att.ko}은(는) 던질 도구가 없어 실패했다!`);await sleep(850);return;}att.item='';att.itemKo='';}
   // 미래예지/파멸의소원: 2턴 뒤 착탄 (즉시 데미지 없음)
   if(FUTURE_MOVES.has(mo.ko)){
     const slot=(def===active())?'pFuture':'eFuture';
@@ -1067,7 +1073,7 @@ async function applyStatusMove(att,def,mo,logs){
 /* 행동 전 상태 처리 → 'ok'|'skip'|'cnf-hit' */
 async function beforeMove(m,side,moveName){
   m._protect=false;m._endure=false;
-  const isSleepTalk = moveName&&M(moveName)&&M(moveName).ko==='잠꼬대';
+  const isSleepTalk = moveName&&M(moveName)&&(M(moveName).ko==='잠꼬대'||M(moveName).ko==='코골기');
   if(hasAbil(m,'truant')){if(m._loafing){m._loafing=false;msg(`${m.ko}은(는) 게으름을 피우고 있다!`);await sleep(700);return 'skip';}else m._loafing=true;}
   if(m.recharge){m.recharge=false;msg(`${m.ko}은(는) 공격의 반동으로 움직일 수 없다!`);await sleep(720);return 'skip';}
   if(m.status==='frz'){if(Math.random()<0.2){m.status=null;}else{msg(`${m.ko}은(는) 얼어서 움직일 수 없다!`);await sleep(650);return 'skip';}}
@@ -1202,6 +1208,9 @@ function speedOf(m){return effStat(m,'spe');}
 // 기대 데미지(난수 평균·급소 제외, 도구/특성/화면 반영)
 function estimateDamage(att,def,mo){
   if(!mo||mo.c==='x')return 0;
+  if(mo.ko==='꿈먹기'&&def.status!=='slp')return 0;   // 조건부: 상대 수면
+  if(mo.ko==='코골기'&&att.status!=='slp')return 0;   // 조건부: 자신 수면
+  if(mo.ko==='속이기'&&!att._fakeOutOK)return 0;      // 조건부: 첫 턴
   if(FIXED_MOVES.has(mo.ko)){if(!mo.struggle&&typeMult(mo.t,def.types)===0)return 0;return fixedDamage(att,def,mo)||0;}
   if(!mo.p)return 0;
   if(!mo.struggle&&typeMult(mo.t,def.types)===0)return 0;
