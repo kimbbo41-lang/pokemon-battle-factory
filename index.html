@@ -109,6 +109,7 @@
   .filter-row{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;}
   select,input{font-family:inherit;padding:6px 8px;border-radius:7px;border:1px solid var(--line);background:#0d1b2a;color:var(--text);}
 </style>
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 </head>
 <body>
 <div id="app">
@@ -126,8 +127,32 @@
       공식 한글명 · 당시 기술배치 그대로 · <b>완전진화체만</b> 등장<br>
       6마리 중 3마리를 골라 <b>49연승</b>에 도전! 이길 때마다 상대를 <b>스카우트</b>,<br>
       <b>7연승마다 팀 전체를 반납하고 새로 렌탈</b>합니다.</p>
-      <button class="btn-primary" id="btn-start" style="margin-top:12px;">배틀 시작!</button>
+      <button class="btn-primary" id="btn-start" style="margin-top:12px;">🏆 혼자하기 (49연승)</button>
+      <button class="btn-ghost" id="btn-online" style="margin-top:10px;">🌐 온라인 대전</button>
       <div class="loading" id="dataStat"></div>
+    </div>
+  </div>
+
+  <!-- 온라인 로비 -->
+  <div class="screen hidden" id="screen-online">
+    <div class="title-wrap">
+      <h2 style="color:var(--accent)">🌐 온라인 대전</h2>
+      <p id="net-status" style="opacity:.85">서버에 연결 중…</p>
+      <div id="online-menu" class="hidden" style="display:flex;flex-direction:column;gap:10px;max-width:320px;margin:16px auto;">
+        <button class="btn-primary" id="btn-random">🎲 랜덤 매칭 (모르는 상대)</button>
+        <button class="btn-ghost" id="btn-createroom">🔑 방 만들기 (친구와)</button>
+        <div style="display:flex;gap:6px;">
+          <input id="room-input" maxlength="6" placeholder="방 코드 6자리" style="flex:1;text-transform:uppercase;">
+          <button class="btn-ghost" id="btn-joinroom">참가</button>
+        </div>
+      </div>
+      <div id="online-wait" class="hidden" style="margin:16px auto;">
+        <div class="pokeball" style="width:56px;height:56px;"></div>
+        <p id="wait-text">상대를 찾는 중…</p>
+        <p id="room-code-show" style="font-size:22px;color:var(--accent);letter-spacing:3px;font-weight:bold;"></p>
+        <button class="btn-ghost" id="btn-cancel-match" style="margin-top:8px;">취소</button>
+      </div>
+      <button class="btn-ghost" id="btn-online-back" style="margin-top:14px;">← 뒤로</button>
     </div>
   </div>
 
@@ -277,6 +302,7 @@ const M=eng=>DATA.moves[eng];
 DATA.moves['__struggle__']={ko:'발버둥',t:'normal',p:50,c:'p',ac:100,drain:-25,struggle:1};
 const METRONOME_POOL=["Earthquake","Flamethrower","Thunderbolt","Ice Beam","Close Combat","Shadow Ball","Surf","Energy Ball","Psychic","Air Slash","Stone Edge","Sludge Bomb","Dark Pulse","Focus Blast","Fire Blast","Hydro Pump","Flash Cannon","Rock Slide","Iron Head","Dragon Pulse","Bug Buzz","Aura Sphere"].filter(x=>DATA.moves[x]);
 let sfx=()=>{},bgmStart=()=>{},bgmStop=()=>{};  // 오디오(하단에서 실제 구현으로 교체)
+let NET=null, ONLINE=false;                      // 온라인 대전 (하단 모듈에서 초기화)
 
 /* ===== 능력치/개체 생성 ===== */
 function stageMul(st){return st>=0?(2+st)/2:2/(2-st);}
@@ -377,7 +403,7 @@ function legalMoves(m){
 /* ===== 상태 ===== */
 let S={round:1,player:[],enemy:[],pIdx:0,eIdx:0,busy:false,weather:null,weatherN:0,pHaz:{},eHaz:{}};
 function updateProgress(){const block=Math.floor((S.round-1)/7)+1,lr=((S.round-1)%7)+1;$("progress").textContent=`${S.round-1}연승 / 49 · ${block}세트(${lr}/7)`;}
-function show(s){["title","draft","battle","swap","result"].forEach(x=>$("screen-"+x).classList.add("hidden"));$("screen-"+s).classList.remove("hidden");}
+function show(s){["title","online","draft","battle","swap","result"].forEach(x=>{const el=$("screen-"+x);if(el)el.classList.add("hidden");});$("screen-"+s).classList.remove("hidden");}
 const active=()=>S.player[S.pIdx];
 const eActive=()=>S.enemy[S.eIdx];
 
@@ -530,7 +556,7 @@ function renderBattle(){
     const b=document.createElement("button");b.className="move-btn";b.style.background=TYPE_COLOR.normal;b.style.gridColumn="1 / -1";
     const why=p.taunt>0?'도발 중이라 쓸 기술이 없다!':'모든 기술의 PP가 없다!';
     b.innerHTML=`<div class="mt"><span>발버둥</span><span class="cat-ico">🥊물리</span></div><small>${why} (반동 있음)</small>`;
-    b.onclick=()=>doPlayerTurn(-1);mv.appendChild(b);return;
+    b.onclick=()=>ONLINE?netChoose(-1):doPlayerTurn(-1);mv.appendChild(b);return;
   }
   const legalSet=new Set(legal);
   p.moves.forEach((name,i)=>{
@@ -543,11 +569,12 @@ function renderBattle(){
     else if(p.encore>0&&p.encoreMove&&name!==p.encoreMove)reason=" · 앙코르";
     b.innerHTML=`<div class="mt"><span>${mo.ko}${effLabel(mo)}</span><span class="cat-ico">${catIco(mo.c)}</span></div>
       <small>${TYPE_KR[mo.t]} · ${mo.c==='x'?'변화':'위력 '+mo.p} · 명중 ${mo.ac?mo.ac:'—'} · PP ${p.pp[i]}/${p.maxpp[i]}${reason}</small>`;
-    b.onclick=()=>doPlayerTurn(i);
+    b.onclick=()=>ONLINE?netChoose(i):doPlayerTurn(i);
     mv.appendChild(b);
   });
+  if(NET&&NET.rec)NET.frames.push({s:netSnap()});
 }
-function msg(t){$("msg").innerHTML=t;}
+function msg(t){$("msg").innerHTML=t;if(NET&&NET.rec)NET.frames.push({m:t});}
 function enableMenu(on){
   $("menu-switch").classList.add("hidden");$("menu-main").classList.remove("hidden");
   $("moves").querySelectorAll("button").forEach(b=>b.disabled=!on);
@@ -1645,6 +1672,250 @@ function autoDraft(){
   const ranked=draftSets.map((s,i)=>({i,bst:DATA.species[s.d].bst})).sort((a,b)=>b.bst-a.bst).slice(0,3).map(x=>x.i);
   draftPicks=ranked;const iv=ivForRound(S.round);S.player=draftPicks.map(i=>makeMon(draftSets[i],iv,draftItems[i]));startRound(true);
 }
+/* ===================== 온라인 대전 ===================== */
+const NET_BROKER='wss://broker.emqx.io:8084/mqtt';
+const LOBBY='bf4v1/lobby';
+function netId(){let s='';const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';for(let i=0;i<8;i++)s+=c[Math.floor(Math.random()*c.length)];return s;}
+function roomCode(){let s='';const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';for(let i=0;i<5;i++)s+=c[Math.floor(Math.random()*c.length)];return s;}
+function netStatus(t){const el=$("net-status");if(el)el.textContent=t;}
+function showOnlineMenu(){$("online-menu").classList.remove("hidden");$("online-wait").classList.add("hidden");}
+function showOnlineWait(txt,code){$("online-menu").classList.add("hidden");$("online-wait").classList.remove("hidden");$("wait-text").textContent=txt;$("room-code-show").textContent=code||'';}
+
+// ---- 상태 스냅샷 (호스트→게스트) ----
+function snapMon(m){if(!m)return null;return{ko:m.ko,spriteId:m.spriteId,dex:m.dex,types:m.types.slice(),hp:Math.max(0,Math.round(m.hp)),maxHp:m.maxHp,status:m.status,cnfN:m.cnfN,toxN:m.toxN,taunt:m.taunt,encore:m.encore,encoreMove:m.encoreMove,fainted:m.fainted,stage:Object.assign({},m.stage),sub:m.sub,seeded:m.seeded,abilityKo:m.abilityKo,ability:m.ability,item:m.item,itemKo:m.itemKo,moves:m.moves.slice(),pp:m.pp.slice(),maxpp:m.maxpp.slice(),_charging:m._charging,_locked:m._locked,_choiceLock:m._choiceLock,disableMove:m.disableMove,disableTurns:m.disableTurns,torment:m.torment,lastMove:m.lastMove,trapped:m.trapped,noSwitch:m.noSwitch};}
+function netSnap(){return{P:S.player.map(snapMon),E:S.enemy.map(snapMon),pi:S.pIdx,ei:S.eIdx,w:S.weather,ps:S.pScreen,es:S.eScreen};}
+function reMon(o){return o?Object.assign({},o):{fainted:true,hp:0,maxHp:1,ko:'?',types:[],stage:{atk:0,def:0,spa:0,spd:0,spe:0,acc:0,eva:0},moves:[],pp:[],maxpp:[]};}
+function applySnap(s){ // 게스트는 p/e 스왑 → 자기 팀이 아래(p)로
+  S.player=(s.E||[]).map(reMon);S.enemy=(s.P||[]).map(reMon);
+  S.pIdx=s.ei;S.eIdx=s.pi;S.weather=s.w;S.pScreen=s.es||{reflect:0,light:0};S.eScreen=s.ps||{reflect:0,light:0};
+}
+
+function netConnect(cb){
+  if(NET&&NET.client&&NET.connected){cb&&cb();return;}
+  if(!window.mqtt){netStatus('MQTT 라이브러리를 못 불러왔어요. 인터넷 연결을 확인하세요.');return;}
+  NET={client:null,myId:netId(),connected:false,role:null,matchId:null,topic:null,rec:false,frames:[],pAction:null,eAction:null,canChoose:false,q:[],qBusy:false,peers:{},pending:null,searching:false,inBattle:false,roomWaiting:false,peerReady:false};
+  netStatus('서버에 연결 중…');
+  const client=mqtt.connect(NET_BROKER,{clientId:'bf_'+NET.myId,reconnectPeriod:4000,connectTimeout:9000,clean:true});
+  NET.client=client;
+  client.on('connect',()=>{if(!NET.connected){NET.connected=true;netStatus('연결됨! 대전 방식을 선택하세요.');showOnlineMenu();cb&&cb();}});
+  client.on('reconnect',()=>netStatus('재연결 중…'));
+  client.on('error',(e)=>netStatus('연결 오류: '+(e&&e.message||e)));
+  client.on('close',()=>{if(NET.inBattle){msg('상대와의 연결이 끊어졌습니다.');}});
+  client.on('message',(topic,payload)=>{let m;try{m=JSON.parse(payload.toString());}catch(e){return;}netOnMessage(topic,m);});
+}
+function netPub(topic,obj){try{NET.client.publish(topic,JSON.stringify(obj));}catch(e){}}
+function netSend(obj){if(NET.topic)netPub(NET.topic,obj);}
+
+// ---- 매칭 ----
+function netStartRandom(){
+  NET.searching=true;NET.role=null;NET.matchId=null;NET.peers={};NET.pending=null;
+  showOnlineWait('상대를 찾는 중…','');
+  NET.client.subscribe(LOBBY);
+  const beat=()=>{if(!NET.searching)return;netPub(LOBBY,{t:'seek',id:NET.myId});netTryPair();};
+  beat();NET.seekTimer=setInterval(beat,1500);
+}
+function netTryPair(){
+  if(NET.matchId||NET.pending)return;
+  const now=Date.now();
+  const active=Object.keys(NET.peers).filter(id=>now-NET.peers[id]<4500&&id!==NET.myId);
+  const lower=active.filter(id=>id<NET.myId).sort();
+  if(lower.length){const host=lower[0];const mid=host+'_'+NET.myId;NET.pending=mid;NET.pendingHost=host;netPub(LOBBY,{t:'join',from:NET.myId,to:host,mid});
+    setTimeout(()=>{if(!NET.matchId&&NET.pending===mid){NET.pending=null;}},3200);}
+}
+function netCreateRoom(){
+  const code=roomCode();NET.role='host';NET.matchId='room_'+code;NET.topic='bf4v1/m/'+NET.matchId;NET.roomWaiting=true;NET.peerReady=false;
+  NET.client.subscribe(NET.topic);showOnlineWait('친구가 코드로 입장하길 기다리는 중…',code);
+  const hb=setInterval(()=>{if(NET.peerReady||!NET.roomWaiting){clearInterval(hb);return;}netSend({t:'hello',id:NET.myId,role:'host'});},1500);
+  netSend({t:'hello',id:NET.myId,role:'host'});
+}
+function netJoinRoom(code){
+  if(!code||code.length<4){netStatus('올바른 방 코드를 입력하세요.');return;}
+  NET.role='guest';NET.matchId='room_'+code;NET.topic='bf4v1/m/'+NET.matchId;
+  NET.client.subscribe(NET.topic);showOnlineWait('방에 입장 중…',code);
+  netSend({t:'hello',id:NET.myId,role:'guest'});
+}
+function netMatched(mid,role){
+  if(NET.matchId)return;
+  NET.searching=false;clearInterval(NET.seekTimer);
+  NET.matchId=mid;NET.role=role;NET.topic='bf4v1/m/'+mid;
+  try{NET.client.unsubscribe(LOBBY);}catch(e){}
+  NET.client.subscribe(NET.topic);
+  showOnlineWait('상대를 찾았습니다! 준비 중…','');
+  netSend({t:'hello',id:NET.myId,role});
+}
+
+function netOnMessage(topic,m){
+  if(topic===LOBBY){
+    if(m.t==='seek'&&m.id!==NET.myId){NET.peers[m.id]=Date.now();}
+    else if(m.t==='join'&&m.to===NET.myId&&!NET.matchId&&NET.searching){netMatched(m.mid,'host');netPub(LOBBY,{t:'ack',from:NET.myId,to:m.from,mid:m.mid});}
+    else if(m.t==='ack'&&m.to===NET.myId&&NET.pending===m.mid&&!NET.matchId){netMatched(m.mid,'guest');}
+    return;
+  }
+  if(topic!==NET.topic)return;
+  if(m.id===NET.myId)return; // 자기 메시지 무시
+  switch(m.t){
+    case 'hello':
+      if(NET.role==='host'&&(NET.roomWaiting||true)&&!NET.peerReady){NET.peerReady=true;NET.roomWaiting=false;pvpBegin();}
+      else if(NET.role==='guest'&&!NET.peerReady){NET.peerReady=true;netSend({t:'hello',id:NET.myId,role:'guest'});}
+      break;
+    case 'init': // 게스트: 드래프트 풀 수신
+      if(NET.role==='guest'){NET.myPool=m.pool;onlineDraft(m.pool,(picks)=>{netSend({t:'draftdone',id:NET.myId,picks});showOnlineBattleWait('상대의 선택을 기다리는 중…');});}
+      break;
+    case 'draftdone': // 호스트: 게스트 선택 수신
+      if(NET.role==='host'){NET.guestPicks=m.picks;pvpTryBuild();}
+      break;
+    case 'frames':
+      if(NET.role==='guest')netEnqueue(async()=>{await replayFrames(m.fr);});
+      break;
+    case 'choose':
+      if(NET.role==='guest')netEnqueue(async()=>{ONLINE=true;NET.inBattle=true;NET.canChoose=true;enableMenu(true);msg('기술을 선택하세요!');});
+      break;
+    case 'action':
+      if(NET.role==='host')NET.eAction={idx:m.idx};
+      break;
+    case 'end':
+      if(NET.role==='guest')netEnqueue(async()=>{pvpShowResult(m.win==='e');});
+      break;
+    case 'bye': if(NET.inBattle){msg('상대가 나갔습니다.');} break;
+  }
+}
+function netEnqueue(fn){NET.q.push(fn);netDrainQ();}
+async function netDrainQ(){if(NET.qBusy)return;NET.qBusy=true;while(NET.q.length){const fn=NET.q.shift();try{await fn();}catch(e){console.error(e);}}NET.qBusy=false;}
+
+// ---- 시작(양쪽 준비 완료) ----
+function pvpBegin(){ // 호스트가 풀 생성 후 전송, 자기 드래프트 시작
+  netStatus('');
+  const pool=SETS_FE.slice();
+  NET.hostPool=[]; NET.guestPool=[];
+  const sh=shuffle(pool); let seen=new Set();
+  for(const s of sh){ if(NET.hostPool.length>=6&&NET.guestPool.length>=6)break; if(seen.has(s.d))continue; seen.add(s.d); if(NET.hostPool.length<6)NET.hostPool.push(s); else NET.guestPool.push(s); }
+  netSend({t:'init',id:NET.myId,pool:NET.guestPool});
+  onlineDraft(NET.hostPool,(picks)=>{NET.hostPicks=picks;showOnlineBattleWait('상대의 선택을 기다리는 중…');pvpTryBuild();});
+}
+function pvpTryBuild(){ if(NET.role!=='host'||!NET.hostPicks||!NET.guestPicks)return;
+  const iv=31;
+  const hi=assignDiverseItems(NET.hostPicks.map(i=>NET.hostPool[i]));
+  const gi=assignDiverseItems(NET.guestPicks.map(i=>NET.guestPool[i]));
+  pvpResetState();
+  S.player=NET.hostPicks.map((i,k)=>makeMon(NET.hostPool[i],iv,hi[k]));
+  S.enemy=NET.guestPicks.map((i,k)=>makeMon(NET.guestPool[i],iv,gi[k]));
+  S.pIdx=0;S.eIdx=0;
+  ONLINE=true;NET.inBattle=true;
+  pvpHostLoop();
+}
+function pvpResetState(){S.weather=null;S.weatherN=0;S.pHaz={};S.eHaz={};S._eSwitchCd=0;S.pScreen={reflect:0,light:0};S.eScreen={reflect:0,light:0};S.pSide={safeguard:0,tailwind:0};S.eSide={safeguard:0,tailwind:0};S.pFuture=null;S.eFuture=null;S.pWish=null;S.eWish=null;S.trickRoom=0;S.waterSport=0;S.mudSport=0;S.busy=false;}
+function showOnlineBattleWait(t){show("online");$("online-menu").classList.add("hidden");$("online-wait").classList.remove("hidden");$("wait-text").textContent=t;$("room-code-show").textContent='';$("btn-cancel-match").classList.add("hidden");}
+
+// ---- 드래프트(온라인) ----
+function onlineDraft(pool,cb){
+  const items=assignDiverseItems(pool);let picks=[];
+  $("poolInfo").textContent='(온라인 대전 · 6마리 중 3마리 선택)';
+  $("btn-reroll").classList.add("hidden");
+  const grid=$("draft-grid");grid.innerHTML="";
+  pool.forEach((set,i)=>{const sp=DATA.species[set.d];const card=document.createElement("div");card.className="card";
+    card.innerHTML=`<div class="num">No.${set.d}</div><img class="sprite" src="${spriteURL(set.d)}" onerror="this.style.opacity=.3"><div class="nm">${sp.ko}</div>
+      <div class="types">${sp.types.map(t=>`<span class="tb" style="background:${TYPE_COLOR[t]}">${TYPE_KR[t]}</span>`).join("")}</div>
+      <div class="nat">${NATURE_KR[set.n]||set.n} · 특성 ${ABKO[pickAbility(sp.abs)]||'-'}</div>
+      <div class="nat" style="color:#ffcb05;font-weight:bold;">🎒 ${(DATA.items&&DATA.items[items[i]])||items[i]||'-'}</div>
+      <div class="movelist">${set.m.map(mv=>{const mo=M(mv);return `· ${mo.ko} <span style="color:${TYPE_COLOR[mo.t]}">${mo.c==='x'?'변화':mo.p}</span>`;}).join("<br>")}</div>`;
+    card.onclick=()=>{const k=picks.indexOf(i);if(k>=0){picks.splice(k,1);card.classList.remove("selected");}else{if(picks.length>=3)return;picks.push(i);card.classList.add("selected");}
+      const b=$("btn-confirm-draft");b.textContent=`이 팀으로 대전! (${picks.length}/3)`;b.disabled=picks.length!==3;};
+    grid.appendChild(card);});
+  const b=$("btn-confirm-draft");b.textContent='이 팀으로 대전! (0/3)';b.disabled=true;
+  b.onclick=()=>{if(picks.length!==3)return;b.disabled=true;b.onclick=null;cb(picks.slice());};
+  show("draft");
+}
+
+// ---- 배틀 진행 ----
+const waitUntil=(cond)=>new Promise(res=>{const t=setInterval(()=>{if(cond()){clearInterval(t);res();}},120);});
+function pvpBattleOver(){return S.player.every(m=>m.fainted)||S.enemy.every(m=>m.fainted);}
+async function pvpCheckFaints(){
+  for(const side of ['p','e']){
+    const team=side==='p'?S.player:S.enemy;const key=side==='p'?'pIdx':'eIdx';const cur=team[S[key]];
+    if(cur&&cur.hp<=0&&!cur.fainted){cur.fainted=true;sfx('faint');renderBattle();msg(`${cur.ko}은(는) 쓰러졌다!`);await sleep(750);
+      const foe=side==='p'?eActive():active();
+      if(cur.destinyBond&&foe&&!foe.fainted&&foe.hp>0){foe.hp=0;renderBattle();msg(`${cur.ko}의 길동무! ${foe.ko}도 함께 쓰러진다!`);await sleep(800);}
+      const nx=team.findIndex(m=>!m.fainted);
+      if(nx>=0){S[key]=nx;onEnter(team[nx]);renderBattle();msg(`${side==='p'?'':'상대는 '}${team[nx].ko}을(를) 내보냈다!`);await sleep(750);await onSwitchIn(team[nx],side);}
+    }
+  }
+}
+async function pvpResolve(pAct,eAct){
+  NET.rec=true;NET.frames=[];S.busy=true;
+  const pMove=pAct.idx<0?'__struggle__':active().moves[pAct.idx];
+  const eMove=eAct.idx<0?'__struggle__':eActive().moves[eAct.idx];
+  S._queued={p:pMove,e:eMove};active()._acted=false;eActive()._acted=false;
+  const pMo=M(pMove),eMo=M(eMove);
+  const pPri=(pMo.pr||0)+((hasAbil(active(),'prankster')&&pMo.c==='x')?1:0);
+  const ePri=(eMo.pr||0)+((hasAbil(eActive(),'prankster')&&eMo.c==='x')?1:0);
+  let order;
+  if(pPri!==ePri)order=pPri>ePri?['p','e']:['e','p'];
+  else{const ps=speedOf(active()),es=speedOf(eActive());const faster=S.trickRoom>0?(ps<es):(ps>es);order=ps!==es?(faster?['p','e']:['e','p']):(Math.random()<.5?['p','e']:['e','p']);}
+  for(const who of order){
+    if(active().fainted||eActive().fainted)break;
+    if(who==='p')await useMove(active(),eActive(),pMove,'p');else await useMove(eActive(),active(),eMove,'e');
+    await pvpCheckFaints();if(pvpBattleOver())break;
+  }
+  if(!pvpBattleOver()){
+    const endOrder=speedOf(active())>=speedOf(eActive())?['p','e']:['e','p'];
+    for(const who of endOrder)await endTurn(who==='p'?active():eActive(),who);
+    await pvpCheckFaints();
+    if(!pvpBattleOver()){await resolveFuture('p');await resolveFuture('e');await pvpCheckFaints();}
+    endOfTurnCleanup();renderBattle();
+  }
+  NET.rec=false;S.busy=false;
+  netSend({t:'frames',id:NET.myId,fr:NET.frames});
+  await sleep(Math.min(4000,NET.frames.length*120)); // 게스트 렌더 여유
+}
+async function pvpHostLoop(){
+  show("battle");
+  // 초기 보드 상태를 게스트에게 전송(게스트가 자기 포켓몬/기술을 보고 선택할 수 있도록)
+  NET.rec=true;NET.frames=[];renderBattle();msg('온라인 대전 시작!');NET.rec=false;
+  netSend({t:'frames',id:NET.myId,fr:NET.frames});
+  await sleep(600);
+  while(!pvpBattleOver()){
+    NET.pAction=null;NET.eAction=null;NET.canChoose=true;
+    enableMenu(true);msg('기술을 선택하세요!');
+    netSend({t:'choose',id:NET.myId});
+    await waitUntil(()=>NET.pAction&&NET.eAction);
+    NET.canChoose=false;enableMenu(false);
+    await pvpResolve(NET.pAction,NET.eAction);
+  }
+  const hostWon=!S.player.every(m=>m.fainted);
+  netSend({t:'end',id:NET.myId,win:hostWon?'p':'e'});
+  pvpShowResult(hostWon);
+}
+function netChoose(i){
+  if(!NET||!NET.canChoose)return;NET.canChoose=false;
+  if(NET.role==='host'){NET.pAction={idx:i};enableMenu(false);msg('상대의 선택을 기다리는 중…');}
+  else{netSend({t:'action',id:NET.myId,idx:i});enableMenu(false);msg('상대의 선택을 기다리는 중…');}
+}
+async function replayFrames(fr){
+  ONLINE=true;NET.inBattle=true;show("battle");
+  for(const f of fr){
+    if('m' in f){msg(f.m);await sleep(520);}
+    else if('s' in f){applySnap(f.s);renderBattle();await sleep(170);}
+  }
+  enableMenu(false); // '기술 선택' 신호가 올 때까지 비활성
+}
+function pvpShowResult(iWon){
+  ONLINE=false;NET.inBattle=false;
+  show("result");bgmStop();
+  $("result-title").textContent=iWon?'🏆 승리!':'💀 패배…';
+  $("result-title").style.color=iWon?'var(--accent)':'var(--hp-red)';
+  $("result-body").innerHTML=`<p>온라인 대전 ${iWon?'승리':'패배'}!</p><p style="opacity:.7">상대: 실제 플레이어</p>`;
+  try{NET.client.unsubscribe(NET.topic);}catch(e){}
+  const rb=$("btn-restart");rb.textContent='🌐 메인으로';rb.onclick=()=>location.reload();
+}
+
+// ---- 온라인 UI 핸들러 ----
+$("btn-online").onclick=()=>{audioInit();show("online");netStatus('서버에 연결 중…');$("online-menu").classList.add("hidden");$("online-wait").classList.add("hidden");netConnect();};
+$("btn-online-back").onclick=()=>{if(NET){NET.searching=false;clearInterval(NET.seekTimer);}show("title");};
+$("btn-random").onclick=()=>netStartRandom();
+$("btn-createroom").onclick=()=>netCreateRoom();
+$("btn-joinroom").onclick=()=>netJoinRoom(($("room-input").value||'').toUpperCase().trim());
+$("btn-cancel-match").onclick=()=>{if(NET){NET.searching=false;NET.roomWaiting=false;clearInterval(NET.seekTimer);try{NET.client.unsubscribe(LOBBY);}catch(e){}}showOnlineMenu();};
+
 $("dataStat").textContent=`데이터 로드 완료 · ${Object.keys(DATA.species).length}종 / ${DATA.sets.length}세트 / ${Object.keys(DATA.moves).length}기술`;
 $("btn-mute").onclick=toggleMute;
 $("btn-auto").onclick=toggleAuto;
