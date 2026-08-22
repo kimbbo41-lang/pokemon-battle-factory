@@ -332,6 +332,26 @@ const TYPE_ITEM={"Charcoal":"fire","Mystic Water":"water","Miracle Seed":"grass"
 const RESIST_BERRY={"Occa Berry":"fire","Passho Berry":"water","Wacan Berry":"electric","Rindo Berry":"grass","Yache Berry":"ice","Chople Berry":"fighting","Kebia Berry":"poison","Shuca Berry":"ground","Coba Berry":"flying","Payapa Berry":"psychic","Tanga Berry":"bug","Charti Berry":"rock","Kasib Berry":"ghost","Haban Berry":"dragon","Colbur Berry":"dark","Babiri Berry":"steel","Chilan Berry":"normal"};
 const PINCH_BERRY={"Liechi Berry":["atk",1],"Ganlon Berry":["def",1],"Petaya Berry":["spa",1],"Apicot Berry":["spd",1],"Salac Berry":["spe",1]};
 const CHOICE_ITEM=m=>hasItem(m,'Choice Band')||hasItem(m,'Choice Specs')||hasItem(m,'Choice Scarf');
+// 내던지기(Fling): 도구별 위력
+const FLING_POWER={"Iron Ball":130,"Hard Stone":100,"Razor Claw":80,"Poison Barb":70,
+  "Life Orb":30,"King's Rock":30,"Razor Fang":30,"Toxic Orb":30,"Flame Orb":30,"Light Ball":30,"Light Clay":30,
+  "Charcoal":30,"Mystic Water":30,"Magnet":30,"Miracle Seed":30,"Black Belt":30,"Soft Sand":30,"Sharp Beak":30,
+  "TwistedSpoon":30,"Silver Powder":30,"Spell Tag":30,"Dragon Fang":30,"BlackGlasses":30,"Metal Coat":30,"NeverMeltIce":30,"Silk Scarf":30,
+  "Choice Band":10,"Choice Specs":10,"Choice Scarf":10,"Leftovers":10,"Focus Sash":10,"Expert Belt":10,
+  "Muscle Band":10,"Wise Glasses":10,"Scope Lens":10,"Wide Lens":10,"BrightPowder":10,"Black Sludge":30};
+function flingPower(item){ if(FLING_POWER[item]!=null)return FLING_POWER[item]; if(/Berry$/.test(item))return 10; return 30; }
+// 내던지기 부가효과: 상대가 도구를 맞음/먹음
+function applyFlingEffect(def,item,logs){
+  if(item==='Flame Orb'){if(applyStatus(def,'brn'))logs.push(`${def.ko}은(는) 던져진 화염구슬에 화상을 입었다!`);return;}
+  if(item==='Toxic Orb'){if(applyStatus(def,'tox'))logs.push(`${def.ko}은(는) 던져진 맹독구슬에 맹독 상태가 되었다!`);return;}
+  if(item==='Light Ball'){if(applyStatus(def,'par'))logs.push(`${def.ko}은(는) 던져진 라이트볼에 마비되었다!`);return;}
+  if(item==='Poison Barb'){if(applyStatus(def,'psn'))logs.push(`${def.ko}은(는) 던져진 독바늘에 중독되었다!`);return;}
+  if(item==="King's Rock"||item==='Razor Fang'){if(!hasAbil(def,'inner-focus'))def._flinch=true;logs.push(`${def.ko}은(는) 풀이 죽었다!`);return;}
+  if(item==='Sitrus Berry'){if(def.hp<def.maxHp){def.hp=Math.min(def.maxHp,def.hp+Math.floor(def.maxHp/4));logs.push(`${def.ko}은(는) 던져진 자뭉열매를 먹고 회복했다!`);}return;}
+  if(item==='Lum Berry'){if(def.status||def.cnfN>0){def.status=null;def.toxN=0;def.cnfN=0;logs.push(`${def.ko}은(는) 던져진 리샘열매로 상태이상이 나았다!`);}return;}
+  if(PINCH_BERRY[item]){const [st,dl]=PINCH_BERRY[item];changeStage(def,st,dl,logs,true);return;}
+  if(item==='Black Sludge'&&!def.types.includes('poison')&&!hasAbil(def,'magic-guard')){def.hp=Math.max(0,def.hp-Math.floor(def.maxHp/8));logs.push(`${def.ko}은(는) 던져진 검은해감에 데미지를 입었다!`);return;}
+}
 // 피격/턴 종료 후 나무열매 발동
 function checkBerries(m,logs){
   if(!m||m.fainted||m.hp<=0||!m.item)return;
@@ -738,7 +758,7 @@ async function useMove(att,def,moveName,side){
   if(pre==='skip'){renderBattle();return;}
   if(pre==='cnf-hit'){await sleep(650);renderBattle();return;}
 
-  let mo=M(moveName);
+  let mo=M(moveName); let flungItem=null;
   // 손가락흔들기: 랜덤 기술 발동
   if(mo.ko==='손가락흔들기'){
     const mi=att.moves.indexOf(moveName);if(mi>=0)att.pp[mi]=Math.max(0,att.pp[mi]-1);
@@ -783,8 +803,8 @@ async function useMove(att,def,moveName,side){
   if(mo.ko==='꿈먹기'&&def.status!=='slp'){msg(`${def.ko}은(는) 자고 있지 않다! 꿈먹기는 실패했다!`);await sleep(850);return;}
   // 코골기: 자신이 자고 있어야 함
   if(mo.ko==='코골기'&&att.status!=='slp'){msg(`${att.ko}은(는) 자고 있지 않아 코골기에 실패했다!`);await sleep(850);return;}
-  // 내던지기: 도구가 있어야 함 (도구 소모)
-  if(mo.ko==='내던지기'){if(!att.item){msg(`${att.ko}은(는) 던질 도구가 없어 실패했다!`);await sleep(850);return;}att.item='';att.itemKo='';}
+  // 내던지기: 도구가 있어야 함 → 도구별 위력·효과
+  if(mo.ko==='내던지기'){if(!att.item){msg(`${att.ko}은(는) 던질 도구가 없어 실패했다!`);await sleep(850);return;}flungItem=att.item;att.item='';att.itemKo='';mo={...mo,p:flingPower(flungItem)};}
   // 미래예지/파멸의소원: 2턴 뒤 착탄 (즉시 데미지 없음)
   if(FUTURE_MOVES.has(mo.ko)){
     const slot=(def===active())?'pFuture':'eFuture';
@@ -923,6 +943,8 @@ async function useMove(att,def,moveName,side){
         else if(def.sub<=0&&!def.fainted&&!hasAbil(def,'shield-dust'))changeStage(def,stat,delta,logs,false);
       }
     }
+    // 내던지기: 던진 도구의 부가효과가 상대에게
+    if(flungItem&&dealt>0&&!def.fainted&&def.sub<=0)applyFlingEffect(def,flungItem,logs);
     // 속박(트랩): 조이기·불꽃세례·마그마스톰 등
     if(mo.trap&&dealt>0&&!def.fainted&&def.trapped<=0){def.trapped=4;def.trapType=mo.ko;logs.push(`${def.ko}은(는) ${mo.ko}에 붙잡혀 빠져나갈 수 없다!`);}
     // 나무열매 (피격측·공격측 반동 후)
