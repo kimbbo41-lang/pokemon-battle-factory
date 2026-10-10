@@ -1389,12 +1389,12 @@ function enemyMaybeSwitch(){
   }
   return -1;
 }
-function enemyDecide(){
+function enemyDecide(allowSwitch=true){
   if(eActive()._charging){return {type:'move',name:eActive()._charging};} // 충전기 발사 고정
   if(eActive()._locked){return {type:'move',name:eActive()._locked};}     // 난동 고정
   if(eActive().encore>0&&eActive().encoreMove){const i=eActive().moves.indexOf(eActive().encoreMove);
     if(i>=0&&eActive().pp[i]>0)return {type:'move',name:eActive().encoreMove};}
-  const sw=enemyMaybeSwitch();
+  const sw=allowSwitch?enemyMaybeSwitch():-1;
   if(sw>=0)return {type:'switch',idx:sw};
   return {type:'move',name:enemyChooseMove(eActive(),active())};
 }
@@ -1525,6 +1525,8 @@ function openSwitch(forced){
 }
 async function chooseSwitch(i){
   const forced=forcedSwitch;const out=active();
+  // 상대는 교체 전 포켓몬을 보고 기술을 고른다 (교체를 미리 알 수 없음)
+  const eMove=(!forced&&out&&!out.fainted&&!eActive().fainted)?enemyDecide(false).name:null;
   if(!forced&&out&&!out.fainted&&hasAbil(out,'natural-cure')&&out.status){out.status=null;out.toxN=0;}
   S.pIdx=i;renderBattle();
   $("menu-switch").classList.add("hidden");S.busy=true;enableMenu(false);
@@ -1537,8 +1539,7 @@ async function chooseSwitch(i){
   }
   // 자발적 교체 = 턴 소모 → 상대가 공격
   S._queued={p:null,e:null};
-  const eMove=enemyChooseMove(eActive(),active());
-  if(!eActive().fainted){
+  if(eMove&&!eActive().fainted){
     await useMove(eActive(),active(),eMove,'e');
     if((await handleFaints())==='stop'){S.busy=false;return;}
     await endTurn(active(),'p');await endTurn(eActive(),'e');
