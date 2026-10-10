@@ -126,7 +126,7 @@
       <p><b>4세대(플라티나·HGSS) 정품 렌탈 데이터</b> · 오픈레벨(Lv.100)<br>
       공식 한글명 · 당시 기술배치 그대로 · <b>완전진화체만</b> 등장<br>
       6마리 중 3마리를 골라 <b>49연승</b>에 도전! 이길 때마다 상대를 <b>스카우트</b>,<br>
-      <b>7연승마다 팀 전체를 반납하고 새로 렌탈</b>합니다.</p>
+      <b>7연승마다 팀 전체를 반납하고 새로 렌탈</b>하며, <b>보상 1개</b>를 고릅니다.</p>
       <button class="btn-primary" id="btn-start" style="margin-top:12px;">🏆 혼자하기 (49연승)</button>
       <button class="btn-ghost" id="btn-online" style="margin-top:10px;">🌐 온라인 대전</button>
       <div class="loading" id="dataStat"></div>
@@ -194,13 +194,19 @@
   </div>
 
   <div class="screen hidden" id="screen-swap">
-    <h2 style="margin-top:0;">승리! 🎉 상대 포켓몬을 스카우트할까요?</h2>
+    <h2 style="margin-top:0;" id="swap-title">승리! 🎉 상대 포켓몬을 스카우트할까요?</h2>
     <p style="opacity:.8;">데려올 상대 1마리 선택 → 내보낼 내 포켓몬 1마리 선택 (또는 넘기기)</p>
     <div class="swap-cols">
       <div><h3>상대 (데려오기)</h3><div class="switch-list" id="swap-enemy"></div></div>
       <div><h3>내 팀 (내보내기)</h3><div class="switch-list" id="swap-mine"></div></div>
     </div>
     <div class="center" style="margin-top:14px;"><button class="btn-ghost" id="btn-skip-swap">그냥 넘기기 →</button></div>
+  </div>
+
+  <div class="screen hidden" id="screen-reward">
+    <h2 style="margin-top:0;">🎁 7연승 보상! <span style="color:var(--accent)">1개</span>를 고르세요</h2>
+    <p style="opacity:.8;" id="reward-sub">고른 보상은 다음 세트(7전) 동안 적용됩니다.</p>
+    <div class="grid" id="reward-grid"></div>
   </div>
 
   <div class="screen hidden" id="screen-result">
@@ -307,6 +313,7 @@ let NET=null, ONLINE=false;                      // 온라인 대전 (하단 모
 /* ===== 능력치/개체 생성 ===== */
 function stageMul(st){return st>=0?(2+st)/2:2/(2-st);}
 function ivForRound(r){const block=Math.floor((r-1)/7),lr=((r-1)%7)+1;return Math.min(31,20+block*2+lr);} // 세트/라운드별 개체값
+function playerIv(r){return S.perk==='iv31'?31:ivForRound(r);} // 내 포켓몬 개체값 (7연승 보상 반영)
 function buildStat(base,iv,ev,natMod,isHp){
   const x=2*base+iv+Math.floor(ev/4);
   if(isHp) return x+LEVEL+10;
@@ -403,7 +410,7 @@ function legalMoves(m){
 /* ===== 상태 ===== */
 let S={round:1,player:[],enemy:[],pIdx:0,eIdx:0,busy:false,weather:null,weatherN:0,pHaz:{},eHaz:{}};
 function updateProgress(){const block=Math.floor((S.round-1)/7)+1,lr=((S.round-1)%7)+1;$("progress").textContent=`${S.round-1}연승 / 49 · ${block}세트(${lr}/7)`;}
-function show(s){["title","online","draft","battle","swap","result"].forEach(x=>{const el=$("screen-"+x);if(el)el.classList.add("hidden");});$("screen-"+s).classList.remove("hidden");}
+function show(s){["title","online","draft","battle","swap","reward","result"].forEach(x=>{const el=$("screen-"+x);if(el)el.classList.add("hidden");});$("screen-"+s).classList.remove("hidden");}
 const active=()=>S.player[S.pIdx];
 const eActive=()=>S.enemy[S.eIdx];
 
@@ -411,6 +418,9 @@ const eActive=()=>S.enemy[S.eIdx];
 // 오픈레벨: 완전진화체만 사용 (미진화체 제외)
 const SETS_FE=DATA.sets.filter(s=>DATA.species[s.d]&&DATA.species[s.d].fe);
 const SETS_FE_SORTED=SETS_FE.slice().sort((a,b)=>DATA.species[a.d].bst-DATA.species[b.d].bst);
+// 강력한 포켓몬: 종족값 상위 18% (강적 트레이너와 같은 풀)
+const STRONG_SETS=SETS_FE_SORTED.slice(Math.floor(SETS_FE_SORTED.length*0.82));
+const STRONG_DEX=new Set(STRONG_SETS.map(s=>s.d));
 function roundPool(r){
   const lr=((r-1)%7)+1, n=SETS_FE_SORTED.length;
   let lo,hi;
@@ -429,13 +439,17 @@ function pickSets(pool,n,exclude){
 let draftSets=[],draftPicks=[],draftItems=[],rerollsLeft=3;
 function startDraft(reroll){
   if(reroll){ if(rerollsLeft<=0)return; rerollsLeft--; }
-  else rerollsLeft=3;
+  else rerollsLeft=3+(S.perk==='reroll'?3:0);
   updateProgress();
-  const pool=roundPool(S.round);
-  draftSets=pickSets(pool,6);
+  const pool=S.perk==='strong'?SETS_FE_SORTED.slice(Math.floor(SETS_FE_SORTED.length*.45)):roundPool(S.round);
+  const nDraft=S.perk==='wide'?9:6;
+  // 렌탈 후보 중 강력한 포켓몬은 정확히 1마리
+  const keptDex=S.kept?[S.kept.dex]:[];
+  const star=pickSets(STRONG_SETS.filter(s=>!keptDex.includes(s.d)),1)[0];
+  draftSets=shuffle([star,...pickSets(pool.filter(s=>!STRONG_DEX.has(s.d)),nDraft-1,[star.d,...keptDex])]);
   draftItems=assignDiverseItems(draftSets);
   draftPicks=[];
-  $("poolInfo").textContent=`(라운드 ${S.round} 풀: ${S.round<=2?'약~중':S.round<=4?'혼합':'강'} · 개체값 ${ivForRound(S.round)})`;
+  $("poolInfo").textContent=`(라운드 ${S.round} 풀: ${S.round<=2?'약~중':S.round<=4?'혼합':'강'} · 개체값 ${playerIv(S.round)})${S.perk?` · 🎁 ${REWARDS[S.perk].name}`:''}${S.kept?` · 데려온 ${S.kept.ko} + 2마리 선택`:''}`;
   const grid=$("draft-grid");grid.innerHTML="";
   draftSets.forEach((set,i)=>{
     const sp=DATA.species[set.d];
@@ -452,21 +466,22 @@ function startDraft(reroll){
     grid.appendChild(card);
   });
   updateDraftBtn();
-  const rb=$("btn-reroll");if(rb){rb.textContent=`🔄 다른 6마리 (남은 ${rerollsLeft})`;rb.disabled=rerollsLeft<=0;}
+  const rb=$("btn-reroll");if(rb){rb.textContent=`🔄 다른 ${draftSets.length}마리 (남은 ${rerollsLeft})`;rb.disabled=rerollsLeft<=0;}
   show("draft");
   if(AUTO)setTimeout(autoDraft,900);
 }
 function toggleDraft(i,card){
   const k=draftPicks.indexOf(i);
   if(k>=0){draftPicks.splice(k,1);card.classList.remove("selected");}
-  else{if(draftPicks.length>=3)return;draftPicks.push(i);card.classList.add("selected");}
+  else{if(draftPicks.length>=draftNeed())return;draftPicks.push(i);card.classList.add("selected");}
   updateDraftBtn();
 }
-function updateDraftBtn(){const b=$("btn-confirm-draft");b.textContent=`이 팀으로 도전! (${draftPicks.length}/3)`;b.disabled=draftPicks.length!==3;}
+const draftNeed=()=>S.kept?2:3; // 보상으로 데려간 포켓몬이 있으면 2마리만 렌탈
+function updateDraftBtn(){const b=$("btn-confirm-draft");b.textContent=`이 팀으로 도전! (${draftPicks.length}/${draftNeed()})`;b.disabled=draftPicks.length!==draftNeed();}
+function buildTeam(){const iv=playerIv(S.round);const t=draftPicks.map(i=>makeMon(draftSets[i],iv,draftItems[i]));if(S.kept){t.unshift(S.kept);S.kept=null;}return t;}
 $("btn-reroll").onclick=()=>startDraft(true);
 $("btn-confirm-draft").onclick=()=>{
-  const iv=ivForRound(S.round);
-  S.player=draftPicks.map(i=>makeMon(draftSets[i],iv,draftItems[i]));
+  S.player=buildTeam();
   startRound(true);
 };
 
@@ -480,11 +495,10 @@ async function startRound(fromDraft){
     S.enemy=DATA.boss.team.map(s=>makeMon(s,31));
     t=S.trainer={cls:DATA.boss.cls,name:DATA.boss.name,quote:DATA.boss.quote,boss:true,final:true};boss=true;
   } else if(S.round%7===0){                            // 7연승마다 강적
-    const strong=SETS_FE_SORTED.slice(Math.floor(SETS_FE_SORTED.length*0.82));
-    const es=pickSets(strong,3),ei=assignDiverseItems(es);S.enemy=es.map((s,i)=>makeMon(s,31,ei[i]));
+    const es=pickSets(STRONG_SETS,3),ei=assignDiverseItems(es);S.enemy=es.map((s,i)=>makeMon(s,31,ei[i]));
     t=S.trainer=randomBossTrainer();boss=true;
   } else {                                             // 일반
-    const es=pickSets(roundPool(S.round),3),ei=assignDiverseItems(es);S.enemy=es.map((s,i)=>makeMon(s,iv,ei[i]));
+    const es=pickSets(roundPool(S.round),3),ei=assignDiverseItems(es),eiv=S.perk==='weakFoe'?0:iv;S.enemy=es.map((s,i)=>makeMon(s,eiv,ei[i]));
     t=S.trainer=randomTrainer();
   }
   S.weather=null;S.weatherN=0;S.pHaz={};S.eHaz={};S._eSwitchCd=0;
@@ -1544,24 +1558,61 @@ async function winRound(){
     show("battle");
     msg(`🏅 ${Math.floor((S.round-1)/7)}세트 클리어! 규정에 따라 지금까지의 팀을 모두 반납하고, 새 렌탈 포켓몬을 받습니다.`);
     await sleep(1900);
-    startDraft(false);return;
+    S.perk=null;S.perkUsed=false;S.kept=null;openReward();return;
   }
   openSwap();
 }
-let swapEnemyPick=-1;
+
+/* ===== 7연승 보상 (다음 세트 동안 적용) ===== */
+const REWARDS={
+  reroll:{icon:"🔄",name:"리롤 +3",desc:"렌탈 '다른 포켓몬 보기' 횟수가 3회 늘어납니다. (총 6회)"},
+  iv31:{icon:"💎",name:"최고 개체값",desc:"이번 세트 동안 렌탈·스카우트하는 내 포켓몬의 개체값이 모두 31이 됩니다."},
+  wide:{icon:"🃏",name:"넓은 선택지",desc:"렌탈 후보가 6마리 대신 9마리 나옵니다."},
+  strong:{icon:"⭐",name:"정예 렌탈",desc:"렌탈 후보가 강한 완전진화체 풀에서만 나옵니다."},
+  keep:{icon:"🤝",name:"동료 데려가기",desc:"반납할 팀에서 1마리를 다음 세트로 데려갑니다. (렌탈은 2마리만)"},
+  scout2:{icon:"🎣",name:"더블 스카우트",desc:"이번 세트 동안 승리 후 상대 포켓몬을 2마리까지 스카우트할 수 있습니다."},
+  weakFoe:{icon:"📉",name:"약해진 상대",desc:"이번 세트의 일반 트레이너 포켓몬 개체값이 0이 됩니다. (강적 제외)"},
+  revive:{icon:"💖",name:"재도전권",desc:"이번 세트에서 한 번 지더라도 연승이 끊기지 않고 같은 라운드에 다시 도전합니다."}
+};
+function openKeep(){
+  const grid=$("reward-grid");grid.innerHTML="";
+  $("reward-sub").textContent="🤝 다음 세트로 데려갈 포켓몬 1마리를 고르세요.";
+  const keep=m=>{sfx('select');S.kept=makeMon(m.set,playerIv(S.round),m.set.it);startDraft(false);};
+  S.player.forEach(m=>{const card=document.createElement("div");card.className="card";card.style.padding="8px";
+    card.innerHTML=swapCard(m);card.onclick=()=>keep(m);grid.appendChild(card);});
+  if(AUTO)setTimeout(()=>keep(S.player.slice().sort((a,b)=>DATA.species[b.dex].bst-DATA.species[a.dex].bst)[0]),900);
+}
+function openReward(){
+  const keys=shuffle(Object.keys(REWARDS)).slice(0,3);
+  const grid=$("reward-grid");grid.innerHTML="";
+  const pick=k=>{sfx('select');S.perk=k;if(k==='keep')openKeep();else startDraft(false);};
+  keys.forEach(k=>{const r=REWARDS[k];
+    const card=document.createElement("div");card.className="card";card.style.padding="16px 10px";
+    card.innerHTML=`<div style="font-size:40px">${r.icon}</div><div class="nm" style="margin-top:6px">${r.name}</div>
+      <div class="movelist" style="text-align:center;margin-top:8px">${r.desc}</div>`;
+    card.onclick=()=>pick(k);grid.appendChild(card);});
+  $("reward-sub").textContent=`${Math.floor((S.round-1)/7)}세트 클리어! 고른 보상은 다음 세트(7전) 동안 적용됩니다.`;
+  show("reward");
+  if(AUTO)setTimeout(()=>pick(keys[Math.floor(Math.random()*keys.length)]),900);
+}
+let swapEnemyPick=-1,swapAgain=false;
 function swapCard(m){return `<img class="sprite" src="${spriteURL(m.spriteId)}" style="width:72px;height:72px" onerror="this.style.opacity=.3">
   <div class="nm" style="font-size:13px">${m.ko}</div>
   <div class="types" style="margin-top:3px">${m.types.map(t=>`<span class="tb" style="background:${TYPE_COLOR[t]};font-size:9px">${TYPE_KR[t]}</span>`).join("")}</div>
   <div class="movelist" style="text-align:center;font-size:10px">${m.moves.map(mv=>M(mv).ko).join(" · ")}</div>`;}
-function openSwap(){
+function openSwap(again){
   if(AUTO){setTimeout(()=>{S.round++;startRound(false);},900);return;}
+  if(!again)swapAgain=false;
+  $("swap-title").textContent=again?"🎁 보상: 한 마리 더 스카우트할까요?":"승리! 🎉 상대 포켓몬을 스카우트할까요?";
   swapEnemyPick=-1;const ee=$("swap-enemy"),mm=$("swap-mine");ee.innerHTML="";mm.innerHTML="";
   S.enemy.forEach((m,i)=>{const b=document.createElement("button");b.className="card";b.style.padding="8px";b.innerHTML=swapCard(m);
     b.onclick=()=>{swapEnemyPick=i;[...ee.children].forEach(c=>c.classList.remove("selected"));b.classList.add("selected");};ee.appendChild(b);});
   S.player.forEach((m,i)=>{const b=document.createElement("button");b.className="card";b.style.padding="8px";b.innerHTML=swapCard(m);
     b.onclick=()=>{if(swapEnemyPick<0){alert("먼저 데려올 상대 포켓몬을 선택하세요!");return;}
-      const iv=ivForRound(S.round+1);
-      S.player[i]=makeMon(S.enemy[swapEnemyPick].set,iv,S.enemy[swapEnemyPick].item);S.round++;startRound(false);};mm.appendChild(b);});
+      const iv=playerIv(S.round+1);
+      S.player[i]=makeMon(S.enemy[swapEnemyPick].set,iv,S.enemy[swapEnemyPick].item);
+      if(S.perk==='scout2'&&!swapAgain&&S.enemy.length>1){swapAgain=true;S.enemy.splice(swapEnemyPick,1);openSwap(true);return;}
+      S.round++;startRound(false);};mm.appendChild(b);});
   show("swap");
 }
 $("btn-skip-swap").onclick=()=>{S.round++;startRound(false);};
@@ -1570,7 +1621,11 @@ $("btn-skip-swap").onclick=()=>{S.round++;startRound(false);};
 async function winGame(){show("result");bgmStop();$("result-title").textContent="🏆 배틀 팩토리 완전제패! (49연승)";$("result-title").style.color="var(--accent)";
   $("result-body").innerHTML=`<p><b>49연승 달성! 골드 심볼</b> 획득!! 🥇</p>
   <div class="switch-list" style="max-width:440px;margin:12px auto;">${S.player.map(m=>`<div class="card"><img class="sprite" src="${spriteURL(m.spriteId)}" style="width:72px;height:72px"><div class="nm">${m.ko}</div></div>`).join("")}</div>`;}
-async function loseGame(){bgmStop();sfx('lose');show("result");$("result-title").textContent="💀 패배…";$("result-title").style.color="var(--hp-red)";
+async function loseGame(){
+  if(S.perk==='revive'&&!S.perkUsed&&!ONLINE){S.perkUsed=true;bgmStop();sfx('heal');
+    msg("🎁 보상 효과! 이번 패배는 없던 일로… 같은 라운드에 다시 도전합니다!");await sleep(1900);
+    setTimeout(()=>startRound(false),0);return;}
+  bgmStop();sfx('lose');show("result");$("result-title").textContent="💀 패배…";$("result-title").style.color="var(--hp-red)";
   $("result-body").innerHTML=`<p>라운드 <b>${S.round}</b>에서 연승이 멈췄습니다.</p>`;}
 
 /* ===== 오디오 (Web Audio 합성) ===== */
@@ -1670,7 +1725,7 @@ function autoTick(){
 function autoDraft(){
   if(!AUTO)return;
   const ranked=draftSets.map((s,i)=>({i,bst:DATA.species[s.d].bst})).sort((a,b)=>b.bst-a.bst).slice(0,3).map(x=>x.i);
-  draftPicks=ranked;const iv=ivForRound(S.round);S.player=draftPicks.map(i=>makeMon(draftSets[i],iv,draftItems[i]));startRound(true);
+  draftPicks=ranked.slice(0,draftNeed());S.player=buildTeam();startRound(true);
 }
 /* ===================== 온라인 대전 ===================== */
 const NET_BROKER='wss://broker.emqx.io:8084/mqtt';
