@@ -69,6 +69,10 @@
   .stages{font-size:10px;margin-top:2px;color:#245;min-height:12px;}
   .enemy-sprite{width:118px;height:118px;}
   .player-sprite{width:150px;height:150px;}
+  .player-sprite.dmax{scale:1.45;transform-origin:50% 100%;filter:drop-shadow(0 0 10px #ff2a4a) drop-shadow(0 0 4px #ff2a4a);}
+  .player-sprite.tera{filter:drop-shadow(0 0 7px #8ff) drop-shadow(0 0 2px #fff) saturate(1.4);}
+  .player-sprite.mega{filter:drop-shadow(0 0 7px #f7f);}
+  #btn-gimmick.armed{background:#ffcb05;color:#0d1b2a;box-shadow:0 0 0 3px rgba(255,203,5,.45);}
   .msgbox{background:#0d1b2a;border:2px solid var(--line);border-radius:10px;padding:11px 14px;min-height:54px;line-height:1.5;font-size:15px;}
   .moves{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:11px;}
   .move-btn{color:#fff;text-align:left;display:flex;flex-direction:column;gap:2px;min-height:46px;justify-content:center;}
@@ -182,6 +186,7 @@
     <div id="menu-main">
       <div class="moves" id="moves"></div>
       <div class="action-row">
+        <button class="btn-ghost hidden" id="btn-gimmick" style="flex:1;"></button>
         <button class="btn-ghost" id="btn-switch" style="flex:1;">포켓몬 교체</button>
         <button class="btn-ghost" id="btn-auto" style="flex:1;">🤖 AI 자동전투: OFF</button>
       </div>
@@ -335,7 +340,7 @@ function makeMon(set,iv,itemOverride){
   const pp=set.m.map(mv=>Math.floor((M(mv).pp||5)*8/5)); // 최대 PP(포인트업 적용 상당)
   const ab=set.ability||pickAbility(sp.abs||[]);
   const it=(itemOverride!==undefined)?itemOverride:(set.ability?(set.it||''):rationalItem(set)); // 다양성 배정 우선, 보스는 지정, 그외 합리적
-  return {set,dex:set.d,spriteId:set.sprite||set.d,ko:sp.ko,types:sp.types.slice(),origTypes:sp.types.slice(),base:sp.base,
+  return {set,iv,dex:set.d,spriteId:set.sprite||set.d,ko:sp.ko,types:sp.types.slice(),origTypes:sp.types.slice(),base:sp.base,
     maxHp:stats.hp,hp:stats.hp,stats,moves:set.m.slice(),nature:set.n,
     ability:ab,abilityKo:ABKO[ab]||ab,origAbility:ab,
     item:it,itemKo:(DATA.items&&DATA.items[it])||it,origItem:it,
@@ -400,7 +405,7 @@ function legalMoves(m){
     const mo=M(m.moves[i]);
     if(m.taunt>0&&mo.c==='x')return false;
     if(m.encore>0&&m.encoreMove&&m.moves[i]!==m.encoreMove)return false;
-    if(m._choiceLock&&CHOICE_ITEM(m)&&m.moves[i]!==m._choiceLock)return false;
+    if(m._choiceLock&&CHOICE_ITEM(m)&&!m.dmax&&m.moves[i]!==m._choiceLock)return false;
     if(m.disableTurns>0&&m.disableMove===m.moves[i])return false;           // 사슬묶기
     if(m.torment&&m.lastMove===m.moves[i])return false;                     // 트집
     return true;
@@ -450,7 +455,7 @@ function startDraft(reroll){
   draftSets=shuffle([...star,...pickSets(pool.filter(s=>!STRONG_DEX.has(s.d)),nDraft-star.length,[...star.map(s=>s.d),...keptDex])]);
   draftItems=assignDiverseItems(draftSets);
   draftPicks=[];
-  $("poolInfo").textContent=`(라운드 ${S.round} 풀: ${S.perk==='strong'?'강':(()=>{const lr=((S.round-1)%7)+1;return lr<=2?'약~중':lr<=4?'혼합':'강';})()} · 개체값 ${playerIv(S.round)})${S.perk?` · 🎁 ${REWARDS[S.perk].name}`:''}${S.kept?` · 데려온 ${S.kept.ko} + 2마리 선택`:''}`;
+  $("poolInfo").textContent=`(라운드 ${S.round} 풀: ${S.perk==='strong'?'강':(()=>{const lr=((S.round-1)%7)+1;return lr<=2?'약~중':lr<=4?'혼합':'강';})()} · 개체값 ${playerIv(S.round)})${S.perk?` · 🎁 ${perkName()}`:''}${S.kept?` · 데려온 ${S.kept.ko} + 2마리 선택`:''}`;
   const grid=$("draft-grid");grid.innerHTML="";
   draftSets.forEach((set,i)=>{
     const sp=DATA.species[set.d];
@@ -461,7 +466,7 @@ function startDraft(reroll){
       <div class="types">${sp.types.map(t=>`<span class="tb" style="background:${TYPE_COLOR[t]}">${TYPE_KR[t]}</span>`).join("")}</div>
       <div class="nat">${NATURE_KR[set.n]||set.n} · 특성 ${ABKO[pickAbility(sp.abs)]||'-'}</div>
       <div class="nat" style="color:#ffcb05;font-weight:bold;">🎒 ${(DATA.items&&DATA.items[draftItems[i]])||draftItems[i]||'-'}</div>
-      <div class="nat" style="opacity:.55">노력치 ${evStr(set)}</div>
+      <div class="nat" style="opacity:.55">노력치 ${evStr(set)}</div>${S.perk==='gimmick'&&S.gimmick==='mega'&&MEGA[set.d]?'<div class="nat" style="color:#f7f;font-weight:bold">💎 메가진화 가능</div>':''}
       <div class="movelist">${set.m.map(mv=>{const mo=M(mv);return `· ${mo.ko} <span style="color:${TYPE_COLOR[mo.t]}">${mo.c==='x'?'변화':mo.p}</span>`;}).join("<br>")}</div>`;
     card.onclick=()=>toggleDraft(i,card);
     grid.appendChild(card);
@@ -490,6 +495,7 @@ $("btn-confirm-draft").onclick=()=>{
 async function startRound(fromDraft){
   updateProgress();
   const iv=ivForRound(S.round);
+  S.player.forEach(revertGimmick);S.gimmickUsed=false;S.gArmed=false;
   if(!fromDraft) S.player.forEach(healFull);
   let t, boss=false;
   if((S.round>=49||TEST_BOSS) && DATA.boss){          // 최종보스 보겸 (테스트시 즉시)
@@ -534,7 +540,9 @@ function renderInfo(el,m,team){
   const badges=(m.status?`<span class="stat-badge" style="background:${STATUS_COLOR[m.status]}">${STATUS_KR[m.status]}</span>`:"")
     +(m.cnfN>0?`<span class="stat-badge" style="background:${STATUS_COLOR.cnf}">혼란</span>`:"")
     +(m.taunt>0?`<span class="stat-badge" style="background:#b23">도발</span>`:"")
-    +(m.encore>0?`<span class="stat-badge" style="background:#b63">앙코르</span>`:"");
+    +(m.encore>0?`<span class="stat-badge" style="background:#b63">앙코르</span>`:"")
+    +(m.dmax>0?`<span class="stat-badge" style="background:#d22">다이맥스 ${m.dmax}</span>`:"")
+    +(m.tera?`<span class="stat-badge" style="background:#29b">테라스탈</span>`:"");
   el.innerHTML=`<div class="nm"><span>${m.ko} ${badges}</span><span>Lv.${LEVEL}</span></div>
     <div class="types" style="justify-content:flex-start;margin-top:3px;">${m.types.map(t=>`<span class="tb" style="background:${TYPE_COLOR[t]}">${TYPE_KR[t]}</span>`).join("")}</div>
     <div style="font-size:10px;color:#2a4a63;margin-top:2px;font-weight:bold;">특성: ${m.abilityKo||'-'}${m.item?` · 도구: ${m.itemKo}`:''}</div>
@@ -562,6 +570,7 @@ function renderBattle(){
   es.src=spriteURL(e.spriteId);es.onerror=()=>es.style.opacity=.3;es.style.opacity=e.fainted?.5:1;
   ps.onerror=()=>{ps.onerror=null;ps.src=spriteURL(p.spriteId);};ps.src=spriteURL(p.spriteId,true);ps.style.opacity=p.fainted?.5:1;
   es.classList.toggle("fainted",e.fainted);ps.classList.toggle("fainted",p.fainted);
+  ps.classList.toggle("dmax",p.dmax>0);ps.classList.toggle("tera",!!p.tera);ps.classList.toggle("mega",!!p._megaBase);
   const wt=$("weather-tag");
   if(S.weather){wt.classList.remove("hidden");wt.textContent=({sun:"☀️ 쾌청",rain:"🌧️ 비",sand:"🌪️ 모래바람",hail:"❄️ 싸라기눈"})[S.weather];}
   else wt.classList.add("hidden");
@@ -575,10 +584,11 @@ function renderBattle(){
   }
   const legalSet=new Set(legal);
   p.moves.forEach((name,i)=>{
-    const mo=M(name);const b=document.createElement("button");
+    const mo=M(shownMove(p,name));const b=document.createElement("button");
     b.className="move-btn";b.style.background=TYPE_COLOR[mo.t];
-    const ok=legalSet.has(i);if(!ok)b.disabled=true;b.style.opacity=ok?1:.4;
-    let reason="";
+    const zBad=S.gArmed&&S.gimmick==='z'&&M(name).c==='x'; // Z기술은 공격기만
+    const ok=legalSet.has(i)&&!zBad;if(!ok){b.disabled=true;b.dataset.off='1';}b.style.opacity=ok?1:.4;
+    let reason=zBad?" · Z기술 불가":(S.gArmed&&S.gimmick==='tera'?` · 🔷테라스탈: ${TYPE_KR[mo.t]}`:"");
     if(p.pp[i]<=0)reason=" · PP없음";
     else if(p.taunt>0&&mo.c==='x')reason=" · 도발로 봉인";
     else if(p.encore>0&&p.encoreMove&&name!==p.encoreMove)reason=" · 앙코르";
@@ -592,7 +602,8 @@ function renderBattle(){
 function msg(t){$("msg").innerHTML=t;if(NET&&NET.rec)NET.frames.push({m:t});}
 function enableMenu(on){
   $("menu-switch").classList.add("hidden");$("menu-main").classList.remove("hidden");
-  $("moves").querySelectorAll("button").forEach(b=>b.disabled=!on);
+  $("moves").querySelectorAll("button").forEach(b=>b.disabled=!on||b.dataset.off==='1');
+  updateGimmickBtn(on);
   $("btn-switch").disabled=!on||S.player.filter(m=>!m.fainted).length<=1||(active()&&(active().trapped>0||active().noSwitch||hasAbil(eActive(),'shadow-tag')));
 }
 
@@ -674,6 +685,7 @@ function absorbCheck(att,def,mo){
   if(t==='ground'&&(hasAbil(def,'levitate')||def.magnetRise>0))return {msg:`${def.ko}은(는) 공중에 떠 있어 땅 타입 기술을 받지 않는다!`};
   if(t==='water'&&(hasAbil(def,'water-absorb')||hasAbil(def,'dry-skin'))){def.hp=Math.min(def.maxHp,def.hp+Math.floor(def.maxHp/4));return {msg:`${def.ko}은(는) ${def.abilityKo}(으)로 물 기술을 흡수해 회복했다!`,heal:true};}
   if(t==='electric'&&hasAbil(def,'volt-absorb')){def.hp=Math.min(def.maxHp,def.hp+Math.floor(def.maxHp/4));return {msg:`${def.ko}은(는) 축전으로 전기 기술을 흡수해 회복했다!`,heal:true};}
+  if(t==='electric'&&hasAbil(def,'lightning-rod')&&def._megaBase){def.stage.spa=Math.min(6,def.stage.spa+1);return {msg:`${def.ko}은(는) 피뢰침으로 전기 기술을 받아내 특수공격이 올랐다!`,heal:true};}
   if(t==='electric'&&hasAbil(def,'motor-drive')){def.stage.spe=Math.min(6,def.stage.spe+1);return {msg:`${def.ko}은(는) 전기엔진으로 스피드가 올랐다!`,heal:true};}
   if(t==='fire'&&hasAbil(def,'flash-fire')){def._flashFire=true;return {msg:`${def.ko}은(는) 타오르는불꽃으로 불꽃 기술을 무효화했다!`,heal:true};}
   if(hasAbil(def,'wonder-guard')&&typeMult(t,def.types)<2)return {msg:`${def.ko}은(는) 불가사의부적으로 데미지를 받지 않는다!`};
@@ -721,14 +733,16 @@ function effStat(m,key){
 }
 function typeMult(t,defTypes){let x=1;for(const d of defTypes){const c=CHART[t];if(c&&c[d]!==undefined)x*=c[d];}return x;}
 // 꿰뚫어보기: 노멀/격투가 고스트에게 통함
-function effVs(t,def){let e=typeMult(t,def.types);if(def.foresight&&(t==='normal'||t==='fighting')&&def.types.includes('ghost')&&e===0)e=1;return e;}
+function effVs(t,def,mo){let e=typeMult(t,def.types);if((def.foresight||(mo&&mo._scrappy))&&(t==='normal'||t==='fighting')&&def.types.includes('ghost')&&e===0)e=typeMult(t,def.types.filter(x=>x!=='ghost'));return e;}
 function calcDamage(att,def,mo){
   const cat=mo.c;
   const A=cat==='p'?effStat(att,'atk'):effStat(att,'spa');
   const D=cat==='p'?effStat(def,'def'):effStat(def,'spd');
-  let dmg=Math.floor(Math.floor(Math.floor(2*LEVEL/5+2)*mo.p*A/D)/50)+2;
-  const stab=(!mo.struggle&&att.types.includes(mo.t))?(hasAbil(att,'adaptability')?2:1.5):1;
-  const eff=mo.struggle?1:effVs(mo.t,def);
+  let pw=mo.p; if(att.tera&&mo.t===att.tera&&pw<60&&!mo.mh&&!(mo.pr>0)&&!mo.gx)pw=60; // 테라스탈: 약한 기술 위력 60 보정
+  let dmg=Math.floor(Math.floor(Math.floor(2*LEVEL/5+2)*pw*A/D)/50)+2;
+  let stab=(!mo.struggle&&att.types.includes(mo.t))?(hasAbil(att,'adaptability')?2:1.5):1;
+  if(att.tera&&!mo.struggle){const o=att._teraOrig||[];stab=mo.t===att.tera?(o.includes(mo.t)?2:1.5):(o.includes(mo.t)?1.5:1);} // 테라스탈 자속
+  const eff=mo.struggle?1:effVs(mo.t,def,mo);
   let critRate=mo.crit?0.125:1/16;
   if(hasItem(att,'Scope Lens')||hasItem(att,'Razor Claw'))critRate=mo.crit?0.25:0.125;
   if(hasAbil(def,'shell-armor')||hasAbil(def,'battle-armor'))critRate=0; // 조가비갑옷/전투무장: 급소 무효
@@ -744,6 +758,15 @@ function calcDamage(att,def,mo){
   if(hasAbil(att,'reckless')&&mo.drain<0)am*=1.2;
   if(hasAbil(att,'tinted-lens')&&eff>0&&eff<1)am*=2;
   if(att._flashFire&&mo.t==='fire')am*=1.5;
+  // 메가진화 특성
+  if(hasAbil(att,'tough-claws')&&isContact(mo))am*=1.3;
+  if(hasAbil(att,'strong-jaw')&&BITE.has(mo.ko))am*=1.5;
+  if(hasAbil(att,'mega-launcher')&&PULSE.has(mo.ko))am*=1.5;
+  if(mo._ate)am*=1.2;
+  if(hasAbil(att,'sand-force')&&S.weather==='sand'&&['rock','ground','steel'].includes(mo.t))am*=1.3;
+  if(isSheer(att,mo))am*=1.3;
+  if(hasAbil(att,'parental-bond')&&!mo.mh&&!mo.gx)am*=1.25; // 부자유친(근사): 2타 합산 1.25배
+  if(mo.gx&&def._protect)am*=0.25; // Z기술·다이맥스기술: 방어 관통 ¼
   if(att.hp<=att.maxHp/3){if((hasAbil(att,'overgrow')&&mo.t==='grass')||(hasAbil(att,'blaze')&&mo.t==='fire')||(hasAbil(att,'torrent')&&mo.t==='water')||(hasAbil(att,'swarm')&&mo.t==='bug'))am*=1.5;}
   if(eff>1&&(hasAbil(def,'solid-rock')||hasAbil(def,'filter')))am*=0.75;
   if(hasAbil(def,'thick-fat')&&(mo.t==='fire'||mo.t==='ice'))am*=0.5;
@@ -832,7 +855,8 @@ async function useMove(att,def,moveName,side){
   // 습기: 자폭/대폭발 불발
   if((mo.ko==='자폭'||mo.ko==='대폭발')&&(hasAbil(def,'damp')||hasAbil(att,'damp'))){msg(`${att.ko}은(는) ${mo.ko}을(를) 쓰려 했지만 습기로 불발됐다!`);await sleep(800);return;}
   // PP 소모(+프레셔) + 마지막 기술 기록
-  if(!skipPP&&moveName!=='__struggle__'){const mi=att.moves.indexOf(moveName);if(mi>=0){att.pp[mi]=Math.max(0,att.pp[mi]-1);if(def&&hasAbil(def,'pressure')&&(mo.c!=='x'||mo.tg==='foe'))att.pp[mi]=Math.max(0,att.pp[mi]-1);}att.lastMove=moveName;if(att._used)att._used.add(moveName);S.lastGlobalMove=moveName;}
+  const baseName=mo.base||moveName; // Z기술·다이맥스기술은 원래 기술의 PP 사용
+  if(!skipPP&&moveName!=='__struggle__'){const mi=att.moves.indexOf(baseName);if(mi>=0){att.pp[mi]=Math.max(0,att.pp[mi]-1);if(def&&hasAbil(def,'pressure')&&(mo.c!=='x'||mo.tg==='foe'))att.pp[mi]=Math.max(0,att.pp[mi]-1);}att.lastMove=baseName;if(att._used)att._used.add(baseName);S.lastGlobalMove=baseName;}
   att._acted=true;
   // 특수 조건 기술
   if(mo.ko==='비장의무기'){const others=att.moves.filter(m=>m!==moveName);if(others.length&&!(att._used&&others.every(m=>att._used.has(m)))){msg(`${att.ko}은(는) 다른 기술을 다 쓰지 않아 비장의무기를 쓸 수 없다!`);await sleep(900);return;}}
@@ -854,23 +878,31 @@ async function useMove(att,def,moveName,side){
     S[slot]={turns:2,power:mo.p,spa:effStat(att,'spa'),type:mo.t,ko:mo.ko,srcKo:att.ko};
     msg(`${att.ko}은(는) 앞일을 내다보고 ${mo.ko}을(를) 걸었다!`);sfx('select');await sleep(900);return;
   }
+  // 스카이스킨·페어리스킨·프리즈스킨 / 배짱
+  {const ATE={aerilate:'flying',pixilate:'fairy',refrigerate:'ice'}[att.ability];
+   if(ATE&&mo.t==='normal'&&mo.c!=='x'&&!mo.struggle)mo={...mo,t:ATE,_ate:true};
+   if(hasAbil(att,'scrappy')&&(mo.t==='normal'||mo.t==='fighting'))mo={...mo,_scrappy:true};}
+  const sheer=isSheer(att,mo);
   // 리베로: 사용 기술 타입으로 변신
   if(hasAbil(att,'libero')&&!mo.struggle&&!(att.types.length===1&&att.types[0]===mo.t)){att.types=[mo.t];}
   // 구애도구: 첫 기술로 고정
-  if(moveName!=='__struggle__'&&CHOICE_ITEM(att))att._choiceLock=moveName;
+  if(moveName!=='__struggle__'&&CHOICE_ITEM(att)&&!att.dmax)att._choiceLock=baseName;
   msg(`${att.ko}의 ${mo.ko}!`);sfx('select');
   const sprS=side==='p'?$("player-sprite"):$("enemy-sprite");
   const sprT=side==='p'?$("enemy-sprite"):$("player-sprite");
   animateAttack(side,mo);await sleep(360);
 
   // 방어
-  if(def._protect&&(mo.c!=='x'||mo.tg==='foe')){msg(`${def.ko}은(는) 공격을 막아냈다!`);await sleep(650);return;}
+  if(def._protect&&(mo.c!=='x'||mo.tg==='foe')&&(!mo.gx||def._maxGuard)){msg(`${def.ko}은(는) 공격을 막아냈다!`);await sleep(650);return;}
+  if(def._protect&&mo.gx){msg(`${def.ko}은(는) 공격을 완전히 막지 못했다!`);await sleep(600);}
   // 공중날기·구멍파기·다이빙 등: 무적 상태 회피
   if(def._charging&&CHARGE_INVULN.has(M(def._charging).ko)&&mo.tg==='foe'){msg(`${att.ko}의 공격은 ${def.ko}에게 닿지 않았다!`);sfx('miss');await sleep(700);return;}
   // 방음: 소리 기술 무효
   if(hasAbil(def,'soundproof')&&SOUND_MOVES.has(mo.ko)){msg(`${def.ko}은(는) 방음으로 ${mo.ko}을(를) 막아냈다!`);await sleep(750);return;}
+  // 매직미러: 상대를 노린 변화기를 튕겨냄
+  if(hasAbil(def,'magic-bounce')&&mo.c==='x'&&mo.tg==='foe'){msg(`${def.ko}은(는) 매직미러로 ${mo.ko}을(를) 튕겨냈다!`);await sleep(800);return;}
   // 명중 (자기대상·필중기는 명중판정 없음 → 상대 회피율 영향 안 받음)
-  const neverMiss=(mo.ac==null)||(mo.tg==='self')||mo.struggle;
+  const neverMiss=(mo.ac==null)||(mo.tg==='self')||mo.struggle||hasAbil(att,'no-guard')||hasAbil(def,'no-guard');
   let acc=mo.ac||100;
   if(hasItem(att,'Wide Lens'))acc*=1.1;
   if(hasAbil(att,'compound-eyes'))acc*=1.3;
@@ -887,9 +919,9 @@ async function useMove(att,def,moveName,side){
   const logs=[];let dealt=0;
   if((mo.c!=='x'&&mo.p>0)||FIXED_MOVES.has(mo.ko)||mo.cg==='ohko'){
     // 타입 면역(0배): 데미지·부가효과 전부 무효
-    if(!mo.struggle&&effVs(mo.t,def)===0){msg(`${def.ko}에게는 효과가 없는 것 같다…`);await sleep(750);return;}
+    if(!mo.struggle&&effVs(mo.t,def,mo)===0){msg(`${def.ko}에게는 효과가 없는 것 같다…`);await sleep(750);return;}
     // 흡수/무효 특성 (부유·저수·축전·타오르는불꽃·불가사의부적 등)
-    const ab=absorbCheck(att,def,mo);
+    const ab=hasAbil(att,'mold-breaker')?null:absorbCheck(att,def,mo); // 틀깨기: 흡수·무효 특성 무시
     if(ab){renderBattle();msg(ab.msg);if(ab.heal)sfx('heal');await sleep(850);return;}
     // 고정 데미지기 (나이트헤드/용의분노/분노의앞니/사이코웨이브/카운터/미러코트 등)
     if(FIXED_MOVES.has(mo.ko)){
@@ -907,12 +939,13 @@ async function useMove(att,def,moveName,side){
     }
     // OHKO
     if(mo.cg==='ohko'){
-      if(hasAbil(def,'sturdy')){msg(`${def.ko}은(는) 옹골참으로 일격필살을 버텨냈다!`);await sleep(800);}
+      if(def.dmax>0){msg(`다이맥스한 ${def.ko}에게는 일격필살이 통하지 않는다!`);await sleep(800);}
+      else if(hasAbil(def,'sturdy')&&!hasAbil(att,'mold-breaker')){msg(`${def.ko}은(는) 옹골참으로 일격필살을 버텨냈다!`);await sleep(800);}
       else{ if(def.sub>0)def.sub=0; else def.hp=0;
         sfx('super');sprT.classList.add("shake");renderBattle();await sleep(430);sprT.classList.remove("shake");
         msg("일격필살! 한 방에 쓰러졌다!");await sleep(700);}
     } else {
-      const hits=multiHitCount(mo);
+      const hits=(hasAbil(att,'skill-link')&&mo.mh)?mo.mh[1]:multiHitCount(mo);
       const f=calcDamage(att,def,mo); const eff=f.eff, crit=f.crit;
       if(hits>1){
         // 연속기: 타수만큼 개별 명중 연출
@@ -957,7 +990,7 @@ async function useMove(att,def,moveName,side){
         else if(!hasAbil(att,'magic-guard')&&!hasAbil(att,'rock-head')){const rc=Math.max(1,Math.floor(dealt*(-mo.drain)/100));att.hp=Math.max(0,att.hp-rc);logs.push(`${att.ko}도 반동 데미지를 입었다!`);}
       }
       // 생명의구슬 반동
-      if(hasItem(att,'Life Orb')&&dealt>0&&!hasAbil(att,'magic-guard')){att.hp=Math.max(0,att.hp-Math.floor(att.maxHp/10));logs.push(`${att.ko}은(는) 생명의구슬 반동을 입었다!`);}
+      if(hasItem(att,'Life Orb')&&dealt>0&&!hasAbil(att,'magic-guard')&&!sheer){att.hp=Math.max(0,att.hp-Math.floor(att.maxHp/10));logs.push(`${att.ko}은(는) 생명의구슬 반동을 입었다!`);}
       // 접촉 특성 (방어측 → 공격측): 정전기/독가시/불꽃몸/포자/까칠한피부/유폭
       if(dealt>0&&isContact(mo)&&!att.fainted&&att.hp>0){
         if(def.hp<=0&&hasAbil(def,'aftermath')&&!hasAbil(att,'magic-guard')){att.hp=Math.max(0,att.hp-Math.floor(att.maxHp/4));logs.push(`${att.ko}은(는) 유폭에 휘말렸다!`);}
@@ -968,7 +1001,7 @@ async function useMove(att,def,moveName,side){
     }
     // 부가효과 (실드더스트/정신력/대타/기절 체크) — 하늘의은총(sg)로 2배
     const sg=hasAbil(att,'serene-grace')?2:1;
-    if(!def.fainted&&def.hp>0&&def.sub<=0&&!hasAbil(def,'shield-dust')){
+    if(!sheer&&!def.fainted&&def.hp>0&&def.sub<=0&&!hasAbil(def,'shield-dust')){
       if(mo.ail&&(!mo.ailc||chance((mo.ailc||100)*sg))){
         if(applyStatus(def,mo.ail)){logs.push(`${def.ko}은(는) ${STATUS_KR[mo.ail]} 상태가 되었다!`);
           if(hasAbil(def,'synchronize')&&['par','brn','psn','tox'].includes(mo.ail)&&applyStatus(att,mo.ail==='tox'?'psn':mo.ail))logs.push(`${att.ko}에게도 싱크로로 상태이상이 옮았다!`);}
@@ -978,13 +1011,18 @@ async function useMove(att,def,moveName,side){
       if(!mo.fl&&(hasItem(att,"King's Rock")||hasItem(att,'Razor Fang'))&&chance(10)&&!hasAbil(def,'inner-focus'))def._flinch=true;
     }
     // 능력변화 (데미지기)
-    if(mo.st&&(!mo.stc||chance(mo.stc*sg))){
+    if(mo.st&&!(sheer&&mo.stc)&&(!mo.stc||chance(mo.stc*sg))){
       for(const [stat,delta] of mo.st){
         if(delta>0)changeStage(att,stat,delta,logs,true);
         else if(SELF_LOWER.has(mo.ko))changeStage(att,stat,delta,logs,true);
         else if(def.sub<=0&&!def.fainted&&!hasAbil(def,'shield-dust'))changeStage(def,stat,delta,logs,false);
       }
     }
+    // 다이맥스 기술 부가효과 (날씨 / 능력 변화)
+    if(mo.maxFx&&dealt>0){const fx=mo.maxFx;
+      if(fx.w&&S.weather!==fx.w){S.weather=fx.w;S.weatherN=5;logs.push(({sun:'햇살이 강해졌다!',rain:'비가 내리기 시작했다!',sand:'모래바람이 일었다!',hail:'싸라기눈이 내리기 시작했다!'})[fx.w]);}
+      if(fx.self&&!att.fainted)changeStage(att,fx.self[0],fx.self[1],logs,true);
+      if(fx.foe&&!def.fainted&&def.hp>0)changeStage(def,fx.foe[0],fx.foe[1],logs,false);}
     // 내던지기: 던진 도구의 부가효과가 상대에게
     if(flungItem&&dealt>0&&!def.fainted&&def.sub<=0)applyFlingEffect(def,flungItem,logs);
     // 속박(트랩): 조이기·불꽃세례·마그마스톰 등
@@ -1024,6 +1062,7 @@ async function applyStatusMove(att,def,mo,logs){
     return;
   }
   // 방어류
+  if(nm==="다이월"){att._protect=true;att._maxGuard=true;logs.push(`${att.ko}은(는) 다이월로 몸을 지켰다!`);return;}
   if(nm==="방어"||nm==="가드"||nm==="니들가드"){att._protect=true;att.protectStreak++;logs.push(`${att.ko}은(는) 몸을 지켜 태세를 갖췄다!`);return;}
   // 버티기
   if(nm==="버티기"){att._endure=true;logs.push(`${att.ko}은(는) 공격을 버틸 준비를 했다!`);return;}
@@ -1136,7 +1175,8 @@ async function applyStatusMove(att,def,mo,logs){
 
 /* 행동 전 상태 처리 → 'ok'|'skip'|'cnf-hit' */
 async function beforeMove(m,side,moveName){
-  m._protect=false;m._endure=false;
+  m._protect=false;m._endure=false;m._maxGuard=false;
+  if(m.dmax>0)m._flinch=false; // 다이맥스: 풀죽음 무효
   const isSleepTalk = moveName&&M(moveName)&&(M(moveName).ko==='잠꼬대'||M(moveName).ko==='코골기');
   if(hasAbil(m,'truant')){if(m._loafing){m._loafing=false;msg(`${m.ko}은(는) 게으름을 피우고 있다!`);await sleep(700);return 'skip';}else m._loafing=true;}
   if(m.recharge){m.recharge=false;msg(`${m.ko}은(는) 공격의 반동으로 움직일 수 없다!`);await sleep(720);return 'skip';}
@@ -1161,7 +1201,7 @@ async function endTurn(m,side){
   if(m.status==='psn'){ if(hasAbil(m,'poison-heal')){if(m.hp<m.maxHp){m.hp=Math.min(m.maxHp,m.hp+Math.floor(m.maxHp/8));logs.push(`${m.ko}은(는) 포이즌힐로 회복했다!`);}} else if(!mg){m.hp=Math.max(0,m.hp-Math.max(1,Math.floor(m.maxHp/8)));logs.push(`${m.ko}은(는) 독 데미지를 입었다!`);}}
   if(m.status==='tox'){ if(hasAbil(m,'poison-heal')){if(m.hp<m.maxHp){m.hp=Math.min(m.maxHp,m.hp+Math.floor(m.maxHp/8));logs.push(`${m.ko}은(는) 포이즌힐로 회복했다!`);}} else if(!mg){m.toxN++;m.hp=Math.max(0,m.hp-Math.max(1,Math.floor(m.maxHp*m.toxN/16)));logs.push(`${m.ko}은(는) 맹독 데미지를 입었다!`);}}
   // 날씨 데미지 (면역 특성 반영)
-  if(S.weather==='sand'&&!mg&&!m.types.some(t=>['rock','ground','steel'].includes(t))&&!hasAbil(m,'sand-veil')){m.hp=Math.max(0,m.hp-Math.floor(m.maxHp/16));logs.push(`${m.ko}은(는) 모래바람에 시달렸다!`);}
+  if(S.weather==='sand'&&!mg&&!m.types.some(t=>['rock','ground','steel'].includes(t))&&!hasAbil(m,'sand-veil')&&!hasAbil(m,'sand-force')){m.hp=Math.max(0,m.hp-Math.floor(m.maxHp/16));logs.push(`${m.ko}은(는) 모래바람에 시달렸다!`);}
   if(S.weather==='hail'&&!mg&&!m.types.includes('ice')&&!hasAbil(m,'snow-cloak')&&!hasAbil(m,'ice-body')){m.hp=Math.max(0,m.hp-Math.floor(m.maxHp/16));logs.push(`${m.ko}은(는) 싸라기눈에 시달렸다!`);}
   // 씨뿌리기
   if(m.seeded&&m.hp>0&&!mg){const d=Math.max(1,Math.floor(m.maxHp/8));m.hp=Math.max(0,m.hp-d);
@@ -1228,7 +1268,8 @@ async function resolveFuture(side){
 function forceSwitch(targetSide,logs){
   const team=targetSide==='p'?S.player:S.enemy;
   const idx=targetSide==='p'?S.pIdx:S.eIdx;
-  const cur=team[idx]; if(cur&&(hasAbil(cur,'suction-cups')||cur.ingrain)){logs.push(`${cur.ko}은(는) ${cur.ingrain?'뿌리를 내려':'흡반으로'} 버텨냈다!`);return;}
+  const cur=team[idx]; if(cur&&cur.dmax>0){logs.push(`${cur.ko}은(는) 다이맥스 중이라 끌려나가지 않는다!`);return;}
+  if(cur&&(hasAbil(cur,'suction-cups')||cur.ingrain)){logs.push(`${cur.ko}은(는) ${cur.ingrain?'뿌리를 내려':'흡반으로'} 버텨냈다!`);return;}
   const alive=team.map((m,i)=>i).filter(i=>i!==idx&&!team[i].fainted);
   if(alive.length){const ni=alive[Math.floor(Math.random()*alive.length)];
     if(targetSide==='p')S.pIdx=ni;else S.eIdx=ni;
@@ -1252,7 +1293,7 @@ async function handlePivot(side){
 async function doPivotSwitch(side,idx,passStages){
   const isP=side==='p'; const cur=isP?active():eActive();
   msg(`${isP?'':'상대의 '}${cur.ko}은(는) 돌아왔다!`);await sleep(650);
-  if(isP)S.pIdx=idx;else S.eIdx=idx;
+  if(isP){endDmax(active());S.pIdx=idx;}else S.eIdx=idx;
   const nm=isP?active():eActive(); onEnter(nm);
   if(passStages)nm.stage=Object.assign({},passStages); // 배턴터치 랭크 계승
   renderBattle();msg(`${isP?'가라, ':'상대는 '}${nm.ko}${isP?'!':'을(를) 내보냈다!'}`);sfx('select');await sleep(750);
@@ -1287,9 +1328,11 @@ function estimateDamage(att,def,mo){
     if(hasAbil(def,'wonder-guard')&&typeMult(t,def.types)<2)return 0;}
   const A=mo.c==='p'?effStat(att,'atk'):effStat(att,'spa');
   const D=mo.c==='p'?effStat(def,'def'):effStat(def,'spd');
-  let dmg=Math.floor(Math.floor(Math.floor(2*LEVEL/5+2)*mo.p*A/D)/50)+2;
-  const stab=(!mo.struggle&&att.types.includes(mo.t))?(hasAbil(att,'adaptability')?2:1.5):1;
-  const eff=mo.struggle?1:effVs(mo.t,def);
+  let pw=mo.p; if(att.tera&&mo.t===att.tera&&pw<60&&!mo.mh&&!(mo.pr>0)&&!mo.gx)pw=60; // 테라스탈: 약한 기술 위력 60 보정
+  let dmg=Math.floor(Math.floor(Math.floor(2*LEVEL/5+2)*pw*A/D)/50)+2;
+  let stab=(!mo.struggle&&att.types.includes(mo.t))?(hasAbil(att,'adaptability')?2:1.5):1;
+  if(att.tera&&!mo.struggle){const o=att._teraOrig||[];stab=mo.t===att.tera?(o.includes(mo.t)?2:1.5):(o.includes(mo.t)?1.5:1);} // 테라스탈 자속
+  const eff=mo.struggle?1:effVs(mo.t,def,mo);
   let w=1;if(S.weather==='sun'){if(mo.t==='fire')w=1.5;if(mo.t==='water')w=.5;}if(S.weather==='rain'){if(mo.t==='water')w=1.5;if(mo.t==='fire')w=.5;}
   let am=1;
   if(S.waterSport&&mo.t==='fire')am*=0.5; if(S.mudSport&&mo.t==='electric')am*=0.5;
@@ -1297,6 +1340,15 @@ function estimateDamage(att,def,mo){
   if(hasAbil(att,'iron-fist')&&PUNCH.has(mo.ko))am*=1.2;
   if(hasAbil(att,'tinted-lens')&&eff>0&&eff<1)am*=2;
   if(att._flashFire&&mo.t==='fire')am*=1.5;
+  // 메가진화 특성
+  if(hasAbil(att,'tough-claws')&&isContact(mo))am*=1.3;
+  if(hasAbil(att,'strong-jaw')&&BITE.has(mo.ko))am*=1.5;
+  if(hasAbil(att,'mega-launcher')&&PULSE.has(mo.ko))am*=1.5;
+  if(mo._ate)am*=1.2;
+  if(hasAbil(att,'sand-force')&&S.weather==='sand'&&['rock','ground','steel'].includes(mo.t))am*=1.3;
+  if(isSheer(att,mo))am*=1.3;
+  if(hasAbil(att,'parental-bond')&&!mo.mh&&!mo.gx)am*=1.25; // 부자유친(근사): 2타 합산 1.25배
+  if(mo.gx&&def._protect)am*=0.25; // Z기술·다이맥스기술: 방어 관통 ¼
   if(att.hp<=att.maxHp/3){if((hasAbil(att,'overgrow')&&mo.t==='grass')||(hasAbil(att,'blaze')&&mo.t==='fire')||(hasAbil(att,'torrent')&&mo.t==='water')||(hasAbil(att,'swarm')&&mo.t==='bug'))am*=1.5;}
   if(eff>1&&(hasAbil(def,'solid-rock')||hasAbil(def,'filter')))am*=0.75;
   if(hasAbil(def,'thick-fat')&&(mo.t==='fire'||mo.t==='ice'))am*=0.5;
@@ -1401,8 +1453,9 @@ function enemyDecide(allowSwitch=true){
 
 async function doPlayerTurn(moveIdx){
   if(S.busy)return;S.busy=true;enableMenu(false);
-  const pMove=moveIdx<0?'__struggle__':active().moves[moveIdx];
+  let pMove=moveIdx<0?'__struggle__':active().moves[moveIdx];
   const dec=enemyDecide();
+  if(moveIdx>=0)pMove=await applyGimmick(pMove);
   if(dec.type==='switch'){await enemySwitchTurn(dec.idx,pMove);return;}
   await runTurn(pMove,dec.name);
 }
@@ -1428,7 +1481,8 @@ async function enemySwitchTurn(idx,pMove){
 function endOfTurnCleanup(){
   for(const m of [active(),eActive()]){if(m){m._flinch=false;m._protect=false;m._endure=false;m._tookPhys=0;m._tookSpec=0;m.destinyBond=false;
     if(m.taunt>0)m.taunt--;
-    if(m.encore>0){m.encore--;if(m.encore<=0)m.encoreMove=null;}}}
+    if(m.encore>0){m.encore--;if(m.encore<=0)m.encoreMove=null;}m._maxGuard=false;}}
+  {const pm=active();if(pm&&pm.dmax>0){pm.dmax--;if(pm.dmax<=0){endDmax(pm);S._note=`${pm.ko}의 다이맥스가 끝났다!`;}}}
   if(S._eSwitchCd>0)S._eSwitchCd--; S._pivotPending=null;
   for(const sc of [S.pScreen,S.eScreen]){if(sc){if(sc.reflect>0)sc.reflect--;if(sc.light>0)sc.light--;}}
   for(const sd of [S.pSide,S.eSide]){if(sd){if(sd.safeguard>0)sd.safeguard--;if(sd.tailwind>0)sd.tailwind--;}}
@@ -1466,7 +1520,7 @@ async function runTurn(pMove,eMove){
   endOfTurnCleanup();renderBattle();
   S.busy=false;finishTurn();
 }
-function finishTurn(){msg("무엇을 할까?");enableMenu(true);maybeAuto();}
+function finishTurn(){msg((S._note?S._note+'<br>':'')+"무엇을 할까?");S._note=null;enableMenu(true);maybeAuto();}
 
 async function handleFaints(){
   let enemyReplaced=false;
@@ -1476,7 +1530,7 @@ async function handleFaints(){
     const nx=S.enemy.findIndex(m=>!m.fainted);
     if(nx<0){await winRound();return 'stop';}
     S.eIdx=nx;onEnter(eActive());renderBattle();msg(`상대는 ${eActive().ko}을(를) 내보냈다!`);await sleep(850);await onSwitchIn(eActive(),'e');enemyReplaced=true;}
-  if(active().hp<=0&&!active().fainted){active().fainted=true;sfx('faint');renderBattle();
+  if(active().hp<=0&&!active().fainted){active().fainted=true;endDmax(active());sfx('faint');renderBattle();
     if(active().destinyBond&&!eActive().fainted&&eActive().hp>0){eActive().hp=0;renderBattle();msg(`${active().ko}의 길동무! ${eActive().ko}도 함께 쓰러진다!`);await sleep(850);}
     if(hasAbil(eActive(),'intrepid-kills')&&!eActive().fainted&&eActive().stage.spe<6){eActive().stage.spe++;renderBattle();msg(`${eActive().ko}은(는) 쓰러뜨려 스피드가 올랐다!`);await sleep(700);}
     if(S.player.every(m=>m.fainted)){await loseGame();return 'stop';}
@@ -1528,6 +1582,7 @@ async function chooseSwitch(i){
   // 상대는 교체 전 포켓몬을 보고 기술을 고른다 (교체를 미리 알 수 없음)
   const eMove=(!forced&&out&&!out.fainted&&!eActive().fainted)?enemyDecide(false).name:null;
   if(!forced&&out&&!out.fainted&&hasAbil(out,'natural-cure')&&out.status){out.status=null;out.toxN=0;}
+  endDmax(out);
   S.pIdx=i;renderBattle();
   $("menu-switch").classList.add("hidden");S.busy=true;enableMenu(false);
   msg(`가라, ${active().ko}!`);sfx('select');await sleep(650);
@@ -1553,14 +1608,14 @@ async function chooseSwitch(i){
 
 /* ===== 승리/스왑 ===== */
 async function winRound(){
-  msg("상대 트레이너를 쓰러뜨렸다! 🎉");sfx('win');await sleep(900);
+  msg("상대 트레이너를 쓰러뜨렸다! 🎉");sfx('win');S.player.forEach(revertGimmick);await sleep(900);
   if(S.round>=49){await winGame();return;}
   if(S.round%7===0){ // 7연승마다 팀 전체 반납 → 재렌탈
     S.round++;
     show("battle");
     msg(`🏅 ${Math.floor((S.round-1)/7)}세트 클리어! 규정에 따라 지금까지의 팀을 모두 반납하고, 새 렌탈 포켓몬을 받습니다.`);
     await sleep(1900);
-    S.perk=null;S.perkUsed=false;S.kept=null;openReward();return;
+    S.perk=null;S.perkUsed=false;S.kept=null;S.gimmick=null;openReward();return;
   }
   openSwap();
 }
@@ -1574,8 +1629,118 @@ const REWARDS={
   keep:{icon:"🤝",name:"동료 데려가기",desc:"반납할 팀에서 1마리를 다음 세트로 데려갑니다. (렌탈은 2마리만)"},
   scout2:{icon:"🎣",name:"더블 스카우트",desc:"이번 세트 동안 승리 후 상대 포켓몬을 2마리까지 스카우트할 수 있습니다."},
   weakFoe:{icon:"📉",name:"약해진 상대",desc:"이번 세트의 일반 트레이너 포켓몬 개체값이 0이 됩니다. (강적 제외)"},
-  revive:{icon:"💖",name:"재도전권",desc:"이번 세트에서 한 번 지더라도 연승이 끊기지 않고 같은 라운드에 다시 도전합니다."}
+  revive:{icon:"💖",name:"재도전권",desc:"이번 세트에서 한 번 지더라도 연승이 끊기지 않고 같은 라운드에 다시 도전합니다."},
+  gimmick:{icon:"✨",name:"배틀 기믹",desc:"메가진화·Z기술·다이맥스·테라스탈 중 하나를 골라, 이번 세트 동안 배틀마다 1번 사용합니다."}
 };
+const perkName=()=>S.perk==='gimmick'&&S.gimmick?GIMMICKS[S.gimmick].name:REWARDS[S.perk].name;
+function openGimmick(){
+  const grid=$("reward-grid");grid.innerHTML="";
+  $("reward-sub").textContent="✨ 이번 세트에서 쓸 배틀 기믹을 고르세요. (배틀마다 1번, 버튼을 누르고 기술 선택)";
+  const pick=g=>{sfx('select');S.gimmick=g;startDraft(false);};
+  Object.keys(GIMMICKS).forEach(g=>{const r=GIMMICKS[g];
+    const card=document.createElement("div");card.className="card";card.style.padding="16px 10px";
+    card.innerHTML=`<div style="font-size:40px">${r.icon}</div><div class="nm" style="margin-top:6px">${r.name}</div>
+      <div class="movelist" style="text-align:center;margin-top:8px">${r.desc}</div>`;
+    card.onclick=()=>pick(g);grid.appendChild(card);});
+  if(AUTO){const ks=Object.keys(GIMMICKS);setTimeout(()=>pick(ks[Math.floor(Math.random()*ks.length)]),900);}
+}
+
+/* ===== 배틀 기믹 (메가진화 / Z기술 / 다이맥스 / 테라스탈) ===== */
+const MEGA={"3":[{"id":10033,"types":["grass","poison"],"ab":"thick-fat","base":{"hp":80,"atk":100,"def":123,"spa":122,"spd":120,"spe":80}}],"6":[{"id":10034,"types":["fire","dragon"],"ab":"tough-claws","base":{"hp":78,"atk":130,"def":111,"spa":130,"spd":85,"spe":100}},{"id":10035,"types":["fire","flying"],"ab":"drought","base":{"hp":78,"atk":104,"def":78,"spa":159,"spd":115,"spe":100}}],"9":[{"id":10036,"types":["water"],"ab":"mega-launcher","base":{"hp":79,"atk":103,"def":120,"spa":135,"spd":115,"spe":78}}],"15":[{"id":10090,"types":["bug","poison"],"ab":"adaptability","base":{"hp":65,"atk":150,"def":40,"spa":15,"spd":80,"spe":145}}],"18":[{"id":10073,"types":["normal","flying"],"ab":"no-guard","base":{"hp":83,"atk":80,"def":80,"spa":135,"spd":80,"spe":121}}],"65":[{"id":10037,"types":["psychic"],"ab":"trace","base":{"hp":55,"atk":50,"def":65,"spa":175,"spd":105,"spe":150}}],"80":[{"id":10071,"types":["water","psychic"],"ab":"shell-armor","base":{"hp":95,"atk":75,"def":180,"spa":130,"spd":80,"spe":30}}],"94":[{"id":10038,"types":["ghost","poison"],"ab":"shadow-tag","base":{"hp":60,"atk":65,"def":80,"spa":170,"spd":95,"spe":130}}],"115":[{"id":10039,"types":["normal"],"ab":"parental-bond","base":{"hp":105,"atk":125,"def":100,"spa":60,"spd":100,"spe":100}}],"127":[{"id":10040,"types":["bug","flying"],"ab":"aerilate","base":{"hp":65,"atk":155,"def":120,"spa":65,"spd":90,"spe":105}}],"130":[{"id":10041,"types":["water","dark"],"ab":"mold-breaker","base":{"hp":95,"atk":155,"def":109,"spa":70,"spd":130,"spe":81}}],"142":[{"id":10042,"types":["rock","flying"],"ab":"tough-claws","base":{"hp":80,"atk":135,"def":85,"spa":70,"spd":95,"spe":150}}],"181":[{"id":10045,"types":["electric","dragon"],"ab":"mold-breaker","base":{"hp":90,"atk":95,"def":105,"spa":165,"spd":110,"spe":45}}],"208":[{"id":10072,"types":["steel","ground"],"ab":"sand-force","base":{"hp":75,"atk":125,"def":230,"spa":55,"spd":95,"spe":30}}],"212":[{"id":10046,"types":["bug","steel"],"ab":"technician","base":{"hp":70,"atk":150,"def":140,"spa":65,"spd":100,"spe":75}}],"214":[{"id":10047,"types":["bug","fighting"],"ab":"skill-link","base":{"hp":80,"atk":185,"def":115,"spa":40,"spd":105,"spe":75}}],"229":[{"id":10048,"types":["dark","fire"],"ab":"solar-power","base":{"hp":75,"atk":90,"def":90,"spa":140,"spd":90,"spe":115}}],"248":[{"id":10049,"types":["rock","dark"],"ab":"sand-stream","base":{"hp":100,"atk":164,"def":150,"spa":95,"spd":120,"spe":71}}],"254":[{"id":10065,"types":["grass","dragon"],"ab":"lightning-rod","base":{"hp":70,"atk":110,"def":75,"spa":145,"spd":85,"spe":145}}],"257":[{"id":10050,"types":["fire","fighting"],"ab":"speed-boost","base":{"hp":80,"atk":160,"def":80,"spa":130,"spd":80,"spe":100}}],"260":[{"id":10064,"types":["water","ground"],"ab":"swift-swim","base":{"hp":100,"atk":150,"def":110,"spa":95,"spd":110,"spe":70}}],"282":[{"id":10051,"types":["psychic","fairy"],"ab":"pixilate","base":{"hp":68,"atk":85,"def":65,"spa":165,"spd":135,"spe":100}}],"302":[{"id":10066,"types":["dark","ghost"],"ab":"magic-bounce","base":{"hp":50,"atk":85,"def":125,"spa":85,"spd":115,"spe":20}}],"303":[{"id":10052,"types":["steel","fairy"],"ab":"huge-power","base":{"hp":50,"atk":105,"def":125,"spa":55,"spd":95,"spe":50}}],"306":[{"id":10053,"types":["steel"],"ab":"filter","base":{"hp":70,"atk":140,"def":230,"spa":60,"spd":80,"spe":50}}],"308":[{"id":10054,"types":["fighting","psychic"],"ab":"pure-power","base":{"hp":60,"atk":100,"def":85,"spa":80,"spd":85,"spe":100}}],"310":[{"id":10055,"types":["electric"],"ab":"intimidate","base":{"hp":70,"atk":75,"def":80,"spa":135,"spd":80,"spe":135}}],"319":[{"id":10070,"types":["water","dark"],"ab":"strong-jaw","base":{"hp":70,"atk":140,"def":70,"spa":110,"spd":65,"spe":105}}],"323":[{"id":10087,"types":["fire","ground"],"ab":"sheer-force","base":{"hp":70,"atk":120,"def":100,"spa":145,"spd":105,"spe":20}}],"334":[{"id":10067,"types":["dragon","fairy"],"ab":"pixilate","base":{"hp":75,"atk":110,"def":110,"spa":110,"spd":105,"spe":80}}],"354":[{"id":10056,"types":["ghost"],"ab":"prankster","base":{"hp":64,"atk":165,"def":75,"spa":93,"spd":83,"spe":75}}],"359":[{"id":10057,"types":["dark"],"ab":"magic-bounce","base":{"hp":65,"atk":150,"def":60,"spa":115,"spd":60,"spe":115}}],"362":[{"id":10074,"types":["ice"],"ab":"refrigerate","base":{"hp":80,"atk":120,"def":80,"spa":120,"spd":80,"spe":100}}],"373":[{"id":10089,"types":["dragon","flying"],"ab":"aerilate","base":{"hp":95,"atk":145,"def":130,"spa":120,"spd":90,"spe":120}}],"376":[{"id":10076,"types":["steel","psychic"],"ab":"tough-claws","base":{"hp":80,"atk":145,"def":150,"spa":105,"spd":110,"spe":110}}],"380":[{"id":10062,"types":["dragon","psychic"],"ab":"levitate","base":{"hp":80,"atk":100,"def":120,"spa":140,"spd":150,"spe":110}}],"381":[{"id":10063,"types":["dragon","psychic"],"ab":"levitate","base":{"hp":80,"atk":130,"def":100,"spa":160,"spd":120,"spe":110}}],"428":[{"id":10088,"types":["normal","fighting"],"ab":"scrappy","base":{"hp":65,"atk":136,"def":94,"spa":54,"spd":96,"spe":135}}],"445":[{"id":10058,"types":["dragon","ground"],"ab":"sand-force","base":{"hp":108,"atk":170,"def":115,"spa":120,"spd":95,"spe":92}}],"448":[{"id":10059,"types":["fighting","steel"],"ab":"adaptability","base":{"hp":70,"atk":145,"def":88,"spa":140,"spd":70,"spe":112}}],"460":[{"id":10060,"types":["grass","ice"],"ab":"snow-warning","base":{"hp":90,"atk":132,"def":105,"spa":132,"spd":105,"spe":30}}],"475":[{"id":10068,"types":["psychic","fighting"],"ab":"inner-focus","base":{"hp":68,"atk":165,"def":95,"spa":65,"spd":115,"spe":110}}]}; // 메가진화 폼 (PokeAPI)
+const MEGA_ABKO={"adaptability":"적응력","aerilate":"스카이스킨","drought":"가뭄","filter":"필터","huge-power":"천하장사","inner-focus":"정신력","intimidate":"위협","levitate":"부유","lightning-rod":"피뢰침","magic-bounce":"매직미러","mega-launcher":"메가런처","mold-breaker":"틀깨기","no-guard":"노가드","parental-bond":"부자유친","pixilate":"페어리스킨","prankster":"짓궂은마음","pure-power":"순수한힘","refrigerate":"프리즈스킨","sand-force":"모래의힘","sand-stream":"모래날림","scrappy":"배짱","shadow-tag":"그림자밟기","sheer-force":"우격다짐","shell-armor":"조가비갑옷","skill-link":"스킬링크","snow-warning":"눈퍼뜨리기","solar-power":"선파워","speed-boost":"가속","strong-jaw":"옹골찬턱","swift-swim":"쓱쓱","technician":"테크니션","thick-fat":"두꺼운지방","tough-claws":"단단한발톱","trace":"트레이스"};
+for(const [k,v] of Object.entries(MEGA_ABKO))if(!ABKO[k])ABKO[k]=v;
+const GIMMICKS={
+  mega:{icon:"💎",name:"메가진화",btn:"💎 메가진화",desc:"메가진화 가능한 포켓몬이 팀에 있으면 배틀마다 1번 메가진화! 능력치·타입·특성이 바뀝니다."},
+  z:{icon:"💠",name:"Z기술",btn:"💠 Z기술",desc:"배틀마다 1번, 공격 기술을 위력이 크게 오른 Z기술로 씁니다. (반드시 명중)"},
+  dmax:{icon:"🔴",name:"다이맥스",btn:"🔴 다이맥스",desc:"배틀마다 1번, 3턴 동안 HP 2배! 기술이 부가효과 있는 다이맥스 기술로 바뀝니다."},
+  tera:{icon:"🔷",name:"테라스탈",btn:"🔷 테라스탈",desc:"배틀마다 1번, 고른 기술의 타입으로 테라스탈해 그 타입 기술 위력이 오릅니다."}
+};
+const BITE=new Set(["Bite","Crunch","Fire Fang","Ice Fang","Thunder Fang","Poison Fang","Hyper Fang"].map(x=>M(x)&&M(x).ko).filter(Boolean));
+const PULSE=new Set(["Aura Sphere","Dragon Pulse","Dark Pulse","Water Pulse"].map(x=>M(x)&&M(x).ko).filter(Boolean));
+function isSheer(att,mo){return hasAbil(att,'sheer-force')&&mo.c!=='x'&&!!(mo.ailc||mo.fl||mo.stc);}
+const Z_NAME={normal:"울트라대시어택",fire:"다이내믹풀플레임",water:"슈퍼아쿠아토네이도",electric:"스파킹기가볼트",grass:"블룸샤인엑스트라",ice:"레이징지오프리즈",fighting:"전력무쌍격렬권",poison:"애시드포이즌딜리트",ground:"라이징랜드오버",flying:"파이널다이브클래시",psychic:"맥시멈사이브레이커",bug:"절대포식회전참",rock:"월즈엔드폴",ghost:"무한암야로의유인",dragon:"얼티메이트드래곤번",dark:"블랙홀이클립스",steel:"초월나선연격",fairy:"러블리스타임팩트"};
+const MAX_NAME={normal:"다이어택",fire:"다이번",water:"다이스트림",electric:"다이썬더",grass:"다이그래스",ice:"다이아이스",fighting:"다이너클",poison:"다이애시드",ground:"다이어스",flying:"다이제트",psychic:"다이사이코",bug:"다이웜",rock:"다이록",ghost:"다이할로우",dragon:"다이드라군",dark:"다이아크",steel:"다이스틸",fairy:"다이페어리"};
+const MAX_FX={fire:{w:'sun'},water:{w:'rain'},rock:{w:'sand'},ice:{w:'hail'},normal:{foe:['spe',-1]},bug:{foe:['spa',-1]},ghost:{foe:['def',-1]},dragon:{foe:['atk',-1]},dark:{foe:['spd',-1]},fighting:{self:['atk',1]},poison:{self:['spa',1]},flying:{self:['spe',1]},ground:{self:['spd',1]},steel:{self:['def',1]}};
+function zPower(mo){if(mo.cg==='ohko')return 180;const p=mo.p||0;if(p<=0)return 100;return p<=55?100:p<=65?120:p<=75?140:p<=85?160:p<=95?175:p<=100?180:p<=110?185:p<=125?190:p<=130?195:200;}
+function maxPower(mo){const p=mo.cg==='ohko'?130:(mo.p||0)<=0?100:mo.p;const tier=p<=40?0:p<=50?1:p<=60?2:p<=70?3:p<=100?4:p<=140?5:6;
+  return (mo.t==='fighting'||mo.t==='poison'?[70,75,80,85,90,95,100]:[90,100,110,120,130,140,150])[tier];}
+// Z기술·다이맥스기술: 원래 기술(base)을 바탕으로 만든 가상 기술 (필중, 원래 기술 PP 사용)
+function gimmickMove(name,kind){
+  const key=`__${kind}__${name}`;if(DATA.moves[key])return key;
+  const mo=M(name);let g;
+  if(kind==='max'&&mo.c==='x')g={ko:'다이월',t:'normal',p:0,c:'x',pp:1,pr:4,tg:'self',cg:'unique',base:name};
+  else if(kind==='max')g={ko:MAX_NAME[mo.t]||'다이어택',t:mo.t,p:maxPower(mo),c:mo.c,pp:1,tg:'foe',cg:'damage',base:name,gx:true,maxFx:MAX_FX[mo.t]||null};
+  else g={ko:Z_NAME[mo.t]||'Z기술',t:mo.t,p:zPower(mo),c:mo.c,pp:1,tg:'foe',cg:'damage',base:name,gx:true};
+  DATA.moves[key]=g;return key;
+}
+function shownMove(p,name){
+  if(p.dmax>0||(S.gArmed&&S.gimmick==='dmax'))return gimmickMove(name,'max');
+  if(S.gArmed&&S.gimmick==='z'&&M(name).c!=='x')return gimmickMove(name,'z');
+  return name;
+}
+const gimmickOn=()=>!ONLINE&&S.perk==='gimmick'&&!!S.gimmick;
+function megaForm(m){const f=MEGA[m.dex];if(!f)return null;if(f.length===1)return f[0];const e=m.set.e||[];return (e[1]||0)>=(e[3]||0)?f[0]:f[1];} // 리자몽: 물리형 X / 특수형 Y
+function canGimmick(){
+  if(!gimmickOn()||S.gimmickUsed)return false;
+  const p=active();if(!p||p.fainted)return false;
+  if(S.gimmick==='mega')return !!megaForm(p)&&!p._megaBase;
+  return true;
+}
+function updateGimmickBtn(on){
+  const b=$("btn-gimmick");if(!b)return;const g=gimmickOn()&&GIMMICKS[S.gimmick];
+  b.classList.toggle("hidden",!g);if(!g)return;
+  b.textContent=S.gimmickUsed?`${g.btn} (사용함)`:S.gArmed?`${g.btn} ✔ 기술을 고르세요`:g.btn;
+  b.classList.toggle("armed",!!S.gArmed);b.disabled=!on||!canGimmick();
+}
+$("btn-gimmick").onclick=()=>{if(S.busy||!canGimmick())return;sfx('select');S.gArmed=!S.gArmed;renderBattle();enableMenu(true);};
+function monStats(base,iv,set){const nat=NATURE[set.n]||null;const nm=st=>nat?(nat[0]===st?1.1:nat[1]===st?0.9:1):1;const ev=set.e||[0,0,0,0,0,0];
+  return {atk:buildStat(base.atk,iv,ev[1],nm('atk')),def:buildStat(base.def,iv,ev[2],nm('def')),spa:buildStat(base.spa,iv,ev[3],nm('spa')),spd:buildStat(base.spd,iv,ev[4],nm('spd')),spe:buildStat(base.spe,iv,ev[5],nm('spe'))};}
+async function applyGimmick(name){
+  const p=active();
+  if(S.gArmed&&canGimmick()&&!(S.gimmick==='z'&&M(name).c==='x')){
+    S.gArmed=false;S.gimmickUsed=true;
+    if(S.gimmick==='mega')await doMega(p);
+    else if(S.gimmick==='dmax')await doDmax(p);
+    else if(S.gimmick==='tera')await doTera(p,M(name).t);
+    else if(S.gimmick==='z'){msg(`${p.ko}은(는) Z파워를 온몸에 둘렀다!`);sfx('super');screenShake();await sleep(1000);return gimmickMove(name,'z');}
+  }
+  S.gArmed=false;
+  return p.dmax>0?gimmickMove(name,'max'):name;
+}
+async function doMega(p){
+  const f=megaForm(p),forms=MEGA[p.dex];
+  p._megaBase={ko:p.ko,spriteId:p.spriteId,base:p.base,stats:p.stats,types:p.types,origTypes:p.origTypes,ability:p.ability,abilityKo:p.abilityKo,origAbility:p.origAbility};
+  msg(`${p.ko}의 메가스톤이 반응했다!`);sfx('stat');await sleep(950);
+  p.ko=`메가${p._megaBase.ko}${forms.length>1?(f===forms[0]?'X':'Y'):''}`;p.spriteId=f.id;p.base=f.base;
+  p.stats=Object.assign({hp:p.stats.hp},monStats(f.base,p.iv,p.set));
+  p.types=f.types.slice();p.origTypes=f.types.slice();p.ability=p.origAbility=f.ab;p.abilityKo=ABKO[f.ab]||f.ab;
+  renderBattle();sfx('heal');screenShake();msg(`${p._megaBase.ko}은(는) ${p.ko}(으)로 메가진화했다!`);await sleep(1200);
+  // 메가진화로 얻은 특성의 등장 효과
+  const foe=eActive(),al=[];
+  if(hasAbil(p,'intimidate')&&foe&&!foe.fainted){al.push(`${p.ko}의 위협! ${foe.ko}은(는) 움츠러들었다!`);changeStage(foe,'atk',-1,al,false);}
+  const w={'drought':'sun','sand-stream':'sand','snow-warning':'hail'}[p.ability];
+  if(w&&S.weather!==w){S.weather=w;S.weatherN=9999;al.push(`${p.ko}의 ${p.abilityKo}! ${({sun:'햇살이 강해졌다!',sand:'모래바람이 일었다!',hail:'싸라기눈이 내리기 시작했다!'})[w]}`);}
+  if(hasAbil(p,'trace')&&foe&&!foe.fainted&&foe.ability){p.ability=foe.ability;p.abilityKo=ABKO[foe.ability]||foe.ability;al.push(`${p.ko}은(는) 트레이스로 ${foe.ko}의 ${p.abilityKo}을(를) 복사했다!`);}
+  if(al.length){renderBattle();for(const l of al){msg(l);await sleep(750);}}
+}
+async function doDmax(p){
+  p._preMaxHp=p.maxHp;p.maxHp*=2;p.hp*=2;p.dmax=3;p._choiceLock=null;
+  sfx('super');screenShake();renderBattle();msg(`${p.ko}은(는) 다이맥스했다!`);await sleep(1200);
+}
+function endDmax(m){
+  if(!m||!m._preMaxHp)return;
+  m.dmax=0;m.maxHp=m._preMaxHp;m._preMaxHp=null;m.hp=m.hp>0?Math.max(1,Math.ceil(m.hp/2)):0;
+}
+async function doTera(p,t){
+  p._teraOrig=p.origTypes.slice();p.tera=t;p.types=[t];p.origTypes=[t];
+  sfx('heal');renderBattle();msg(`${p.ko}은(는) 테라스탈해서 ${TYPE_KR[t]} 타입이 되었다!`);await sleep(1200);
+}
+// 배틀이 끝나면 원래 모습으로
+function revertGimmick(m){
+  if(m._megaBase){Object.assign(m,m._megaBase);m._megaBase=null;}
+  if(m._teraOrig){m.origTypes=m._teraOrig;m.types=m._teraOrig.slice();m._teraOrig=null;m.tera=null;}
+  endDmax(m);
+}
 function openKeep(){
   const grid=$("reward-grid");grid.innerHTML="";
   $("reward-sub").textContent="🤝 다음 세트로 데려갈 포켓몬 1마리를 고르세요.";
@@ -1587,7 +1752,7 @@ function openKeep(){
 function openReward(){
   const keys=shuffle(Object.keys(REWARDS)).slice(0,3);
   const grid=$("reward-grid");grid.innerHTML="";
-  const pick=k=>{sfx('select');S.perk=k;if(k==='keep')openKeep();else startDraft(false);};
+  const pick=k=>{sfx('select');S.perk=k;if(k==='keep')openKeep();else if(k==='gimmick')openGimmick();else startDraft(false);};
   keys.forEach(k=>{const r=REWARDS[k];
     const card=document.createElement("div");card.className="card";card.style.padding="16px 10px";
     card.innerHTML=`<div style="font-size:40px">${r.icon}</div><div class="nm" style="margin-top:6px">${r.name}</div>
@@ -1722,7 +1887,9 @@ function autoTick(){
   if(!active()||active().fainted)return;
   const act=playerAutoAction();
   if(act.type==='switch'){S._pSwitchCd=2;forcedSwitch=false;chooseSwitch(act.idx);}
-  else{S._pSwitchCd=Math.max(0,(S._pSwitchCd||0)-1);doPlayerTurn(act.idx);}
+  else{S._pSwitchCd=Math.max(0,(S._pSwitchCd||0)-1);
+    if(act.idx>=0&&canGimmick()&&!(S.gimmick==='z'&&M(active().moves[act.idx]).c==='x'))S.gArmed=true;
+    doPlayerTurn(act.idx);}
 }
 function autoDraft(){
   if(!AUTO)return;
