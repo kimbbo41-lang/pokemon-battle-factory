@@ -338,7 +338,7 @@ function makeMon(set,iv,itemOverride){
   return {set,dex:set.d,spriteId:set.sprite||set.d,ko:sp.ko,types:sp.types.slice(),origTypes:sp.types.slice(),base:sp.base,
     maxHp:stats.hp,hp:stats.hp,stats,moves:set.m.slice(),nature:set.n,
     ability:ab,abilityKo:ABKO[ab]||ab,origAbility:ab,
-    item:it,itemKo:(DATA.items&&DATA.items[it])||it,
+    item:it,itemKo:(DATA.items&&DATA.items[it])||it,origItem:it,
     pp:pp.slice(),maxpp:pp.slice(),
     fainted:false,status:null,toxN:0,slpN:0,cnfN:0,
     stage:{atk:0,def:0,spa:0,spd:0,spe:0,acc:0,eva:0},
@@ -351,7 +351,7 @@ function makeMon(set,iv,itemOverride){
 function healFull(m){m.hp=m.maxHp;m.fainted=false;m.status=null;m.toxN=0;m.slpN=0;m.cnfN=0;
   m.pp=m.maxpp.slice();m.stage={atk:0,def:0,spa:0,spd:0,spe:0,acc:0,eva:0};m.recharge=false;m.sub=0;m.seeded=false;m.protectStreak=0;
   m.ability=m.origAbility;m.abilityKo=ABKO[m.origAbility]||m.origAbility;m._flashFire=false;m._slowStart=0;
-  m.item=m.set.it||'';m.itemKo=(DATA.items&&DATA.items[m.item])||m.item;m._choiceLock=null;m._sashUsed=false;m.types=m.origTypes.slice();
+  m.item=m.origItem;m.itemKo=(DATA.items&&DATA.items[m.item])||m.item;m._choiceLock=null;m._sashUsed=false;m.types=m.origTypes.slice();
   m.aquaRing=false;m.ingrain=false;m.cursed=false;m.drowsy=0;m.attract=false;m._charging=null;m.trapped=0;
   m._used=new Set();m._locked=null;m._lockTurns=0;
   m._fakeOutOK=true;m.noSwitch=false;m.magnetRise=0;m.destinyBond=false;m.perish=0;m.foresight=false;m.lockOn=false;m.torment=false;m.nightmare=false;m.abilityOff=false;m.disableMove=null;m.disableTurns=0;m._wish=0;
@@ -421,6 +421,7 @@ const SETS_FE_SORTED=SETS_FE.slice().sort((a,b)=>DATA.species[a.d].bst-DATA.spec
 // 강력한 포켓몬: 종족값 상위 18% (강적 트레이너와 같은 풀)
 const STRONG_SETS=SETS_FE_SORTED.slice(Math.floor(SETS_FE_SORTED.length*0.82));
 const STRONG_DEX=new Set(STRONG_SETS.map(s=>s.d));
+const STRONG_CHANCE=40; // 렌탈 후보에 강력한 포켓몬이 (최대 1마리) 섞일 확률(%)
 function roundPool(r){
   const lr=((r-1)%7)+1, n=SETS_FE_SORTED.length;
   let lo,hi;
@@ -443,10 +444,10 @@ function startDraft(reroll){
   updateProgress();
   const pool=S.perk==='strong'?SETS_FE_SORTED.slice(Math.floor(SETS_FE_SORTED.length*.45)):roundPool(S.round);
   const nDraft=S.perk==='wide'?9:6;
-  // 렌탈 후보 중 강력한 포켓몬은 정확히 1마리
+  // 렌탈 후보 중 강력한 포켓몬은 확률적으로 최대 1마리
   const keptDex=S.kept?[S.kept.dex]:[];
-  const star=pickSets(STRONG_SETS.filter(s=>!keptDex.includes(s.d)),1)[0];
-  draftSets=shuffle([star,...pickSets(pool.filter(s=>!STRONG_DEX.has(s.d)),nDraft-1,[star.d,...keptDex])]);
+  const star=chance(STRONG_CHANCE)?pickSets(STRONG_SETS.filter(s=>!keptDex.includes(s.d)),1):[];
+  draftSets=shuffle([...star,...pickSets(pool.filter(s=>!STRONG_DEX.has(s.d)),nDraft-star.length,[...star.map(s=>s.d),...keptDex])]);
   draftItems=assignDiverseItems(draftSets);
   draftPicks=[];
   $("poolInfo").textContent=`(라운드 ${S.round} 풀: ${S.round<=2?'약~중':S.round<=4?'혼합':'강'} · 개체값 ${playerIv(S.round)})${S.perk?` · 🎁 ${REWARDS[S.perk].name}`:''}${S.kept?` · 데려온 ${S.kept.ko} + 2마리 선택`:''}`;
@@ -1577,7 +1578,7 @@ const REWARDS={
 function openKeep(){
   const grid=$("reward-grid");grid.innerHTML="";
   $("reward-sub").textContent="🤝 다음 세트로 데려갈 포켓몬 1마리를 고르세요.";
-  const keep=m=>{sfx('select');S.kept=makeMon(m.set,playerIv(S.round),m.set.it);startDraft(false);};
+  const keep=m=>{sfx('select');S.kept=makeMon(m.set,playerIv(S.round),m.origItem);startDraft(false);};
   S.player.forEach(m=>{const card=document.createElement("div");card.className="card";card.style.padding="8px";
     card.innerHTML=swapCard(m);card.onclick=()=>keep(m);grid.appendChild(card);});
   if(AUTO)setTimeout(()=>keep(S.player.slice().sort((a,b)=>DATA.species[b.dex].bst-DATA.species[a.dex].bst)[0]),900);
@@ -1610,7 +1611,7 @@ function openSwap(again){
   S.player.forEach((m,i)=>{const b=document.createElement("button");b.className="card";b.style.padding="8px";b.innerHTML=swapCard(m);
     b.onclick=()=>{if(swapEnemyPick<0){alert("먼저 데려올 상대 포켓몬을 선택하세요!");return;}
       const iv=playerIv(S.round+1);
-      S.player[i]=makeMon(S.enemy[swapEnemyPick].set,iv,S.enemy[swapEnemyPick].item);
+      S.player[i]=makeMon(S.enemy[swapEnemyPick].set,iv,S.enemy[swapEnemyPick].origItem);
       if(S.perk==='scout2'&&!swapAgain&&S.enemy.length>1){swapAgain=true;S.enemy.splice(swapEnemyPick,1);openSwap(true);return;}
       S.round++;startRound(false);};mm.appendChild(b);});
   show("swap");
