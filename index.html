@@ -450,7 +450,7 @@ function startDraft(reroll){
   draftSets=shuffle([...star,...pickSets(pool.filter(s=>!STRONG_DEX.has(s.d)),nDraft-star.length,[...star.map(s=>s.d),...keptDex])]);
   draftItems=assignDiverseItems(draftSets);
   draftPicks=[];
-  $("poolInfo").textContent=`(라운드 ${S.round} 풀: ${S.round<=2?'약~중':S.round<=4?'혼합':'강'} · 개체값 ${playerIv(S.round)})${S.perk?` · 🎁 ${REWARDS[S.perk].name}`:''}${S.kept?` · 데려온 ${S.kept.ko} + 2마리 선택`:''}`;
+  $("poolInfo").textContent=`(라운드 ${S.round} 풀: ${S.perk==='strong'?'강':(()=>{const lr=((S.round-1)%7)+1;return lr<=2?'약~중':lr<=4?'혼합':'강';})()} · 개체값 ${playerIv(S.round)})${S.perk?` · 🎁 ${REWARDS[S.perk].name}`:''}${S.kept?` · 데려온 ${S.kept.ko} + 2마리 선택`:''}`;
   const grid=$("draft-grid");grid.innerHTML="";
   draftSets.forEach((set,i)=>{
     const sp=DATA.species[set.d];
