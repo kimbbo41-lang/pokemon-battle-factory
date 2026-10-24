@@ -315,7 +315,7 @@ function dynMove(att,def,mo,baseName,dry){ // dry=true: AI 예측용(상태 변�
     case '쥐어짜기': case '묵사발': p=1+Math.floor(120*def.hp/def.maxHp);break;
     case '소금물': if(def.hp<=def.maxHp/2)p*=2;break;
     case '혼내기': p=Math.min(200,60+20*Object.values(def.stage).reduce((a,b)=>a+Math.max(0,b),0));break;
-    case '마지막수단': {const i=att.moves.indexOf(baseName);const left=i>=0?att.pp[i]:5;p=[200,80,60,50][left]||40;break;}
+    case '마지막수단': {const i=att.moves.indexOf(baseName);const left=i>=0?att.pp[i]-(dry?1:0):5;p=[200,80,60,50][left]||40;break;}
     case '웨더볼': if(S.weather){t={sun:'fire',rain:'water',sand:'rock',hail:'ice'}[S.weather];p=100;}break;
     case '잠깨움뺨치기': if(def.status==='slp')p*=2;break;
     case '안다리걸기': case '풀묶기': {const w=(WEIGHT[def.dex]||500)/10;p=w<10?20:w<25?40:w<50?60:w<100?80:w<200?100:120;break;}
@@ -676,15 +676,19 @@ function renderBattle(){
   const legalSet=new Set(legal);
   p.moves.forEach((name,i)=>{
     const mo=M(shownMove(p,name));const b=document.createElement("button");
-    b.className="move-btn";b.style.background=TYPE_COLOR[mo.t];
+    b.className="move-btn";
+    // 현재 상황 기준 위력·타입 (객기·기사회생·웨더볼·안다리걸기 등)
+    let dmo=mo;if(!mo.base&&mo.c!=='x'&&e&&!e.fainted){try{const r=dynMove(p,e,mo,name,true);dmo=r.mo||{...mo,p:0};}catch(x){}}
+    b.style.background=TYPE_COLOR[dmo.t];
     const zBad=S.gArmed&&S.gimmick==='z'&&M(name).c==='x'; // Z기술은 공격기만
     const ok=legalSet.has(i)&&!zBad;if(!ok){b.disabled=true;b.dataset.off='1';}b.style.opacity=ok?1:.4;
     let reason=zBad?" · Z기술 불가":(S.gArmed&&S.gimmick==='tera'?` · 🔷테라스탈: ${TYPE_KR[mo.t]}`:"");
     if(p.pp[i]<=0)reason=" · PP없음";
     else if(p.taunt>0&&mo.c==='x')reason=" · 도발로 봉인";
     else if(p.encore>0&&p.encoreMove&&name!==p.encoreMove)reason=" · 앙코르";
-    b.innerHTML=`<div class="mt"><span>${mo.ko}${effLabel(mo)}</span><span class="cat-ico">${catIco(mo.c)}</span></div>
-      <small>${TYPE_KR[mo.t]} · ${mo.c==='x'?'변화':'위력 '+mo.p} · 명중 ${mo.ac?mo.ac:'—'} · PP ${p.pp[i]}/${p.maxpp[i]}${reason}</small>`;
+    const pwTxt=mo.c==='x'?'변화':(dmo.p!==mo.p?`위력 ${mo.p}→<b style="color:#fff36b">${dmo.p}</b>`:'위력 '+mo.p);
+    b.innerHTML=`<div class="mt"><span>${mo.ko}${effLabel(dmo)}</span><span class="cat-ico">${catIco(mo.c)}</span></div>
+      <small>${TYPE_KR[dmo.t]} · ${pwTxt} · 명중 ${mo.ac?mo.ac:'—'} · PP ${p.pp[i]}/${p.maxpp[i]}${reason}</small>`;
     b.onclick=()=>ONLINE?netChoose(i):doPlayerTurn(i);
     mv.appendChild(b);
   });
