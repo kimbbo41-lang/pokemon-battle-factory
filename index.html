@@ -267,22 +267,94 @@ const NATURE_KR={Hardy:"노력",Lonely:"외로움",Brave:"용감",Adamant:"고�
   Calm:"차분",Gentle:"얌전",Sassy:"건방",Careful:"신중",Quirky:"변덕"};
 // 데미지 기술이면서 자신 능력이 내려가는 기술(한글명)
 const SELF_LOWER=new Set(["용성군","오버히트","리프스톰","인파이트","엄청난힘","암해머","사이코부스트"]);
-const RECHARGE=new Set(["파괴광선","기가임팩트","블라스트번","하이드로캐논","하드플랜트","시간의포효"]);
+const RECHARGE=new Set(["파괴광선","기가임팩트","블라스트번","하이드로캐논","하드플랜트","시간의포효","암석포"]);
 // 고정/특수 데미지기
-const FIXED_MOVES=new Set(["나이트헤드","지구던지기","용의분노","소닉붐","분노의앞니","목숨걸기","사이코웨이브","카운터","미러코트"]);
+const FIXED_MOVES=new Set(["나이트헤드","지구던지기","용의분노","소닉붐","분노의앞니","목숨걸기","사이코웨이브","카운터","미러코트","죽기살기","메탈버스트"]);
 function fixedDamage(att,def,mo){
   switch(mo.ko){
     case "나이트헤드": case "지구던지기": return LEVEL;
     case "용의분노": return 40;
     case "소닉붐": return 20;
     case "분노의앞니": return Math.max(1,Math.floor(def.hp/2));
-    case "목숨걸기": return Math.max(0,def.hp-att.hp);
+    case "목숨걸기": case "죽기살기": return Math.max(0,def.hp-att.hp);
+    case "메탈버스트": {const t=(att._tookPhys||0)+(att._tookSpec||0);return t>0?Math.floor(t*1.5):0;}
     case "사이코웨이브": return Math.max(1,Math.floor(LEVEL*(0.5+Math.random())));
     case "카운터": return (att._tookPhys>0)?att._tookPhys*2:0;
     case "미러코트": return (att._tookSpec>0)?att._tookSpec*2:0;
   }
   return null;
 }
+const WEIGHT={"1":69,"2":130,"3":1000,"4":85,"5":190,"6":905,"7":90,"8":225,"9":855,"12":320,"15":295,"17":300,"18":395,"20":185,"22":380,"24":650,"25":60,"26":300,"27":120,"28":295,"30":200,"31":600,"33":195,"34":620,"35":75,"36":400,"37":99,"38":199,"40":120,"42":550,"43":54,"44":86,"45":186,"47":295,"48":300,"49":125,"51":333,"53":320,"54":196,"55":766,"57":320,"58":190,"59":1550,"61":200,"62":540,"64":565,"65":480,"66":195,"67":705,"68":1300,"70":64,"71":155,"72":455,"73":550,"74":200,"75":1050,"76":3000,"77":300,"78":950,"79":360,"80":785,"81":60,"82":600,"83":150,"84":392,"85":852,"86":900,"87":1200,"88":300,"89":300,"91":1325,"93":1,"94":405,"95":2100,"96":324,"97":756,"98":65,"99":600,"100":104,"101":666,"102":25,"103":1200,"104":65,"105":450,"106":498,"107":502,"108":655,"109":10,"110":95,"111":1150,"112":1200,"113":346,"114":350,"115":800,"117":250,"118":150,"119":390,"120":345,"121":800,"122":545,"123":560,"124":406,"125":300,"126":445,"127":550,"128":884,"130":2350,"131":2200,"133":65,"134":290,"135":245,"136":250,"137":365,"138":75,"139":350,"140":115,"141":405,"142":590,"143":4600,"144":554,"145":526,"146":600,"147":33,"148":165,"149":2100,"152":64,"153":158,"154":1005,"155":79,"156":190,"157":795,"158":95,"159":250,"160":888,"162":325,"164":408,"166":356,"168":335,"169":750,"170":120,"171":225,"176":32,"177":20,"178":150,"180":133,"181":615,"182":58,"184":285,"185":380,"186":339,"188":10,"189":30,"190":115,"192":85,"193":380,"195":750,"196":265,"197":270,"198":21,"199":795,"200":10,"202":285,"203":415,"205":1258,"206":140,"207":648,"208":4000,"209":78,"210":487,"211":39,"212":1180,"213":205,"214":540,"215":280,"216":88,"217":1258,"219":550,"221":558,"222":50,"223":120,"224":285,"225":160,"226":2200,"227":505,"228":108,"229":350,"230":1520,"231":335,"232":1200,"233":325,"234":712,"237":480,"238":60,"239":235,"240":214,"241":755,"242":468,"243":1780,"244":1980,"245":1870,"246":720,"247":1520,"248":2020,"252":50,"253":216,"254":522,"255":25,"256":195,"257":520,"258":76,"259":280,"260":819,"262":370,"264":325,"267":284,"269":316,"271":325,"272":550,"274":280,"275":596,"277":198,"279":280,"282":484,"284":36,"286":392,"288":465,"289":1305,"291":120,"292":12,"294":405,"295":840,"297":2538,"299":970,"301":326,"302":110,"303":115,"304":600,"305":1200,"306":3600,"308":315,"310":402,"311":42,"312":42,"313":177,"314":177,"315":20,"317":800,"318":208,"319":888,"320":1300,"321":3980,"322":240,"323":2200,"324":804,"325":306,"326":715,"327":50,"329":153,"330":820,"331":513,"332":774,"333":12,"334":206,"335":403,"336":525,"337":1680,"338":1540,"340":236,"341":115,"342":328,"343":215,"344":1080,"345":238,"346":604,"347":125,"348":682,"350":1620,"351":8,"352":220,"353":23,"354":125,"355":150,"356":306,"357":1000,"358":10,"359":470,"361":168,"362":2565,"364":876,"365":1506,"366":525,"367":270,"368":226,"369":234,"370":87,"371":421,"372":1105,"373":1026,"375":2025,"376":5500,"377":2300,"378":1750,"379":2050,"380":400,"381":600,"387":102,"388":970,"389":3100,"390":62,"391":220,"392":550,"393":52,"394":230,"395":845,"396":20,"397":155,"398":249,"399":200,"400":315,"401":22,"402":255,"403":95,"404":305,"405":420,"406":12,"407":145,"408":315,"409":1025,"410":570,"411":1495,"412":34,"413":65,"414":233,"415":55,"416":385,"417":39,"418":295,"419":335,"420":33,"421":93,"422":63,"423":299,"424":203,"425":12,"426":150,"427":55,"428":333,"429":44,"430":273,"431":39,"432":438,"433":6,"434":192,"435":380,"436":605,"437":1870,"438":150,"439":130,"440":244,"441":19,"443":205,"444":560,"445":950,"446":1050,"447":202,"448":540,"449":495,"450":3000,"451":120,"452":615,"453":230,"454":444,"455":270,"456":70,"457":240,"458":650,"459":505,"460":1355,"461":340,"462":1800,"463":1400,"464":2828,"465":1286,"466":1386,"467":680,"468":380,"469":515,"470":255,"471":259,"472":425,"473":2910,"474":340,"475":520,"476":3400,"477":1066,"478":266,"479":3,"485":4300,"486":4200,"488":856,"815":330,"861":610,"888":1100}; // 몸무게(0.1kg, PokeAPI) — 안다리걸기/풀묶기
+// 조건에 따라 위력·타입이 바뀌는 기술 → 이번 사용에 쓸 기술 사본 (실패 시 {fail}, 별도 처리 완료 시 {done})
+function dynMove(att,def,mo,baseName){
+  const k=mo.ko;let p=mo.p,t=mo.t,x={};
+  const dc=def&&def._charging?M(def._charging).ko:null;
+  switch(k){
+    case '객기': if(['brn','psn','tox','par'].includes(att.status))p*=2;break;
+    case '눈사태': case '리벤지': if((att._tookPhys||0)+(att._tookSpec||0)>0)p*=2;break;
+    case '보복': if(def._acted)p*=2;break;
+    case '승부굳히기': if((def._tookPhys||0)+(def._tookSpec||0)>0)p*=2;break;
+    case '자이로볼': p=Math.min(150,Math.floor(25*speedOf(def)/Math.max(1,speedOf(att)))+1);break;
+    case '기사회생': case '바둥바둥': {const r=Math.floor(48*att.hp/att.maxHp);p=r<=1?200:r<=4?150:r<=9?100:r<=16?80:r<=32?40:20;break;}
+    case '분화': p=Math.max(1,Math.floor(150*att.hp/att.maxHp));break;
+    case '쥐어짜기': case '묵사발': p=1+Math.floor(120*def.hp/def.maxHp);break;
+    case '소금물': if(def.hp<=def.maxHp/2)p*=2;break;
+    case '혼내기': p=Math.min(200,60+20*Object.values(def.stage).reduce((a,b)=>a+Math.max(0,b),0));break;
+    case '마지막수단': {const i=att.moves.indexOf(baseName);const left=i>=0?att.pp[i]:5;p=[200,80,60,50][left]||40;break;}
+    case '웨더볼': if(S.weather){t={sun:'fire',rain:'water',sand:'rock',hail:'ice'}[S.weather];p=100;}break;
+    case '잠깨움뺨치기': if(def.status==='slp')p*=2;break;
+    case '안다리걸기': case '풀묶기': {const w=(WEIGHT[def.dex]||500)/10;p=w<10?20:w<25?40:w<50?60:w<100?80:w<200?100:120;break;}
+    case '짓밟기': if(def._minimized)p*=2;break;
+    case '연속자르기': {const c=att._lastExec==='연속자르기'?Math.min(2,(att._furyN||0)+1):0;att._furyN=c;p=40*2**c;break;}
+    case '구르기': case '아이스볼': {const c=att._rollN||0;p=30*2**c*(att._curled?2:1);att._rollN=c+1;
+      if(att._rollN>=5){att._rollN=0;att._locked=null;}else att._locked=baseName;break;}
+    case '토해내기': {const c=att._stock||0;if(!c)return {fail:'하지만 비축한 힘이 없어 실패했다!'};p=100*c;att._stock=0;
+      att.stage.def=Math.max(-6,att.stage.def-c);att.stage.spd=Math.max(-6,att.stage.spd-c);break;}
+    case '프레젠트': {const r=Math.random();
+      if(r<0.2){def.hp=Math.min(def.maxHp,def.hp+Math.floor(def.maxHp/4));sfx('heal');return {done:[`${def.ko}은(는) 선물을 받아 체력을 회복했다!`]};}
+      p=r<0.6?40:r<0.9?80:120;break;}
+    case '비밀의힘': x={ail:'par',ailc:30};break;
+    case '바람일으키기': case '회오리': if(dc==='공중날기'||dc==='뛰어오르기')p*=2;break;
+    case '지진': if(dc==='구멍파기')p*=2;break;
+    case '파도타기': case '바다회오리': if(dc==='다이빙')p*=2;break;
+    case '따라가때리기': if(S._pursuit)p*=2;break;
+  }
+  if(att._charged&&t==='electric'&&mo.c!=='x'){p*=2;att._charged=false;} // 충전
+  att._lastExec=k;
+  return {mo:(p!==mo.p||t!==mo.t||x.ail)?{...mo,p,t,...x}:mo};
+}
+// 공중날기·구멍파기·다이빙 중에도 맞힐 수 있는 기술
+function hitsInvuln(chargeKo,moveKo){
+  return (({'공중날기':['바람일으키기','회오리','번개','스카이어퍼'],'뛰어오르기':['바람일으키기','회오리','번개','스카이어퍼'],'구멍파기':['지진','땅가르기'],'다이빙':['파도타기','바다회오리']})[chargeKo]||[]).includes(moveKo);
+}
+function eatBerry(m,it,logs){
+  if(it==='Sitrus Berry'){m.hp=Math.min(m.maxHp,m.hp+Math.floor(m.maxHp/4));logs.push(`${m.ko}은(는) 체력을 회복했다!`);return;}
+  if(it==='Oran Berry'){m.hp=Math.min(m.maxHp,m.hp+10);logs.push(`${m.ko}은(는) 체력을 회복했다!`);return;}
+  if(it==='Lum Berry'){if(m.status||m.cnfN>0){m.status=null;m.toxN=0;m.cnfN=0;logs.push(`${m.ko}의 상태이상이 나았다!`);}return;}
+  if(PINCH_BERRY[it]){const [st,dl]=PINCH_BERRY[it];changeStage(m,st,dl,logs,true);return;}
+  const cure={'Cheri Berry':'par','Chesto Berry':'slp','Pecha Berry':'psn','Rawst Berry':'brn','Aspear Berry':'frz'}[it];
+  if(cure&&(m.status===cure||(cure==='psn'&&m.status==='tox'))){m.status=null;m.toxN=0;logs.push(`${m.ko}의 상태이상이 나았다!`);}
+  if(it==='Persim Berry'&&m.cnfN>0){m.cnfN=0;logs.push(`${m.ko}의 혼란이 풀렸다!`);}
+}
+// 맞힌 뒤 효과 (도구 떨구기/빼앗기/열매 먹기, 고속스핀, 잠깨움뺨치기, 변색)
+function postHitEffects(att,def,mo,logs){
+  const k=mo.ko;
+  if(k==='탁쳐서떨구기'&&def.item&&!hasAbil(def,'sticky-hold')){logs.push(`${att.ko}은(는) ${def.ko}의 ${def.itemKo}을(를) 탁 쳐서 떨어뜨렸다!`);def.item='';def.itemKo='';def._noRecycle=true;}
+  if((k==='탐내다'||k==='도둑질')&&!att.item&&def.item&&!hasAbil(def,'sticky-hold')){att.item=def.item;att.itemKo=def.itemKo;def.item='';def.itemKo='';def._noRecycle=true;logs.push(`${att.ko}은(는) ${def.ko}의 ${att.itemKo}을(를) 빼앗았다!`);}
+  if((k==='벌레먹기'||k==='쪼아대기')&&/Berry$/.test(def.item||'')&&!hasAbil(def,'sticky-hold')){const it=def.item,ik=def.itemKo;def.item='';def.itemKo='';def._noRecycle=true;logs.push(`${att.ko}은(는) ${def.ko}의 ${ik}을(를) 먹어치웠다!`);eatBerry(att,it,logs);}
+  if(k==='고속스핀'&&!att.fainted&&att.hp>0){const h=att===active()?S.pHaz:S.eHaz;
+    if(h.sr||h.spikes||h.tspikes||att.trapped>0||att.seeded){h.sr=false;h.spikes=0;h.tspikes=0;att.trapped=0;att.seeded=false;logs.push(`${att.ko}은(는) 고속스핀으로 주변을 깨끗이 날려버렸다!`);}}
+  if(k==='잠깨움뺨치기'&&def.status==='slp'&&def.hp>0){def.status=null;def.slpN=0;logs.push(`${def.ko}은(는) 잠에서 깼다!`);}
+  if(hasAbil(def,'color-change')&&def.hp>0&&!mo.struggle&&!(def.types.length===1&&def.types[0]===mo.t)){def.types=[mo.t];logs.push(`${def.ko}은(는) 변색으로 ${TYPE_KR[mo.t]} 타입이 되었다!`);}
+}
+// 기분파: 날씨에 따라 타입·모습 변화
+function syncForecast(){
+  for(const m of [active(),eActive()]){if(!m||!hasAbil(m,'forecast'))continue;
+    const t={sun:'fire',rain:'water',hail:'ice'}[S.weather]||'normal';
+    if(m.types.length!==1||m.types[0]!==t){m.types=[t];m.spriteId={fire:10013,water:10014,ice:10015}[t]||m.dex;}}
+}
+// 흉내내기 원상복구
+function unMimic(m){if(m&&m._mimicOrig){const o=m._mimicOrig;m.moves[o.i]=o.name;m.pp[o.i]=o.pp;m.maxpp[o.i]=o.maxpp;m._mimicOrig=null;}}
 // 연속기 타수: 데이터(mo.mh=[min,max])에서 직접 결정 — 모든 연속기 커버
 function multiHitCount(mo){const r=mo&&mo.mh;if(!r)return 1;if(r[0]===r[1])return r[0];const x=Math.random();return x<0.35?2:x<0.60?3:x<0.80?4:5;}
 // 헛발질(크래시) 기술
@@ -290,11 +362,11 @@ const CRASH_MOVES=new Set(["무릎차기","점프킥","니킥"]);
 // 공격 후 교체(피벗) 기술
 const PIVOT_MOVES=new Set(["유턴","볼트체인지","퀵턴"]);
 // 2턴 충전기 (솔라빔=쾌청시 즉발, 공중날기류=무적)
-const CHARGE_MOVES=new Set(["솔라빔","공중날기","구멍파기","다이빙","갓버드","로켓해머","칼바람","프리즈볼트","미티어빔"]);
-const CHARGE_INVULN=new Set(["공중날기","구멍파기","다이빙","바운스","섀도다이브"]);
-const CHARGE_MSG={"솔라빔":"빛을 모으기 시작했다!","공중날기":"하늘 높이 날아올랐다!","구멍파기":"땅속으로 파고들었다!","다이빙":"물속으로 숨어들었다!","갓버드":"몸에 힘을 모으고 있다!","로켓해머":"머리를 낮췄다!","칼바람":"바람을 일으키고 있다!","프리즈볼트":"냉기를 모으고 있다!","미티어빔":"우주의 힘을 모으고 있다!"};
+const CHARGE_MOVES=new Set(["솔라빔","공중날기","구멍파기","다이빙","갓버드","로켓해머","칼바람","프리즈볼트","미티어빔","불새","뛰어오르기"]);
+const CHARGE_INVULN=new Set(["공중날기","구멍파기","다이빙","바운스","섀도다이브","뛰어오르기"]);
+const CHARGE_MSG={"솔라빔":"빛을 모으기 시작했다!","불새":"격렬한 빛에 휩싸였다!","뛰어오르기":"높이 뛰어올랐다!","공중날기":"하늘 높이 날아올랐다!","구멍파기":"땅속으로 파고들었다!","다이빙":"물속으로 숨어들었다!","갓버드":"몸에 힘을 모으고 있다!","로켓해머":"머리를 낮췄다!","칼바람":"바람을 일으키고 있다!","프리즈볼트":"냉기를 모으고 있다!","미티어빔":"우주의 힘을 모으고 있다!"};
 // 난동(2~3턴 고정 후 혼란)
-const LOCK_MOVES=new Set(["역린","날뛰기","꽃잎댄스"]);
+const LOCK_MOVES=new Set(["역린","날뛰기","꽃잎댄스","난동부리기"]);
 // 지연 공격 (2턴 뒤 착탄)
 const FUTURE_MOVES=new Set(["미래예지","파멸의소원"]);
 const STATUS_KR={par:"마비",slp:"잠듦",frz:"얼음",brn:"화상",psn:"독",tox:"맹독",cnf:"혼란"};
@@ -364,6 +436,7 @@ function healFull(m){m.hp=m.maxHp;m.fainted=false;m.status=null;m.toxN=0;m.slpN=
 function onEnter(m){m.taunt=0;m.encore=0;m.encoreMove=null;m.lastMove=null;m.protectStreak=0;m._flashFire=false;m._choiceLock=null;m.types=m.origTypes.slice();
   m.aquaRing=false;m.ingrain=false;m.cursed=false;m.drowsy=0;m.attract=false;m._charging=null;m.trapped=0;m._loafing=false;m._used=new Set();m._locked=null;m._lockTurns=0;
   m._fakeOutOK=true;m.noSwitch=false;m.magnetRise=0;m.destinyBond=false;m.perish=0;m.foresight=false;m.lockOn=false;m.torment=false;m.nightmare=false;m.abilityOff=false;m.disableMove=null;m.disableTurns=0;
+  m._stock=0;m._rollN=0;m._bide=null;m._furyN=0;m._lastExec=null;m._minimized=false;m._curled=false;m._imprison=false;m._magicCoat=false;unMimic(m);
   m.ability=m.origAbility;m.abilityKo=ABKO[m.origAbility]||m.origAbility;} // 교체/등장 시 해제(트레이스/리베로 원복)
 const hasItem=(m,x)=>!!m&&m.item===x;
 const TYPE_ITEM={"Charcoal":"fire","Mystic Water":"water","Miracle Seed":"grass","Magnet":"electric","NeverMeltIce":"ice","Black Belt":"fighting","Poison Barb":"poison","Soft Sand":"ground","Sharp Beak":"flying","TwistedSpoon":"psychic","Silver Powder":"bug","Hard Stone":"rock","Spell Tag":"ghost","Dragon Fang":"dragon","BlackGlasses":"dark","Metal Coat":"steel","Silk Scarf":"normal","Odd Incense":"psychic","Rock Incense":"rock","Rose Incense":"grass","Sea Incense":"water","Wave Incense":"water"};
@@ -408,6 +481,7 @@ function legalMoves(m){
     if(m._choiceLock&&CHOICE_ITEM(m)&&!m.dmax&&m.moves[i]!==m._choiceLock)return false;
     if(m.disableTurns>0&&m.disableMove===m.moves[i])return false;           // 사슬묶기
     if(m.torment&&m.lastMove===m.moves[i])return false;                     // 트집
+    {const foe=(m===active())?eActive():(m===eActive()?active():null);if(foe&&foe._imprison&&foe.moves.includes(m.moves[i]))return false;} // 봉인
     return true;
   });
 }
@@ -564,6 +638,7 @@ function effLabel(mo){
   return '';
 }
 function renderBattle(){
+  syncForecast();
   const p=active(),e=eActive();
   renderInfo($("enemy-info"),e,S.enemy);renderInfo($("player-info"),p,S.player);
   const es=$("enemy-sprite"),ps=$("player-sprite");
@@ -612,7 +687,7 @@ const ABKO=DATA.abilities||{};
 const hasAbil=(m,a)=>!!m&&m.ability===a;
 const IMPL_ABIL=new Set(["intimidate","levitate","sturdy","huge-power","pure-power","guts","blaze","torrent","overgrow","swarm","thick-fat","water-absorb","volt-absorb","flash-fire","sand-stream","drizzle","drought","snow-warning","chlorophyll","swift-swim","speed-boost","static","poison-point","flame-body","rough-skin","immunity","limber","insomnia","vital-spirit","water-veil","magma-armor","own-tempo","inner-focus","clear-body","white-smoke","hyper-cutter","keen-eye","marvel-scale","quick-feet","natural-cure","poison-heal","magic-guard","solid-rock","filter","technician","adaptability","iron-fist","reckless","tinted-lens","sand-veil","snow-cloak","motor-drive","dry-skin","heatproof","solar-power","leaf-guard","shield-dust","effect-spore","download","trace","hustle","sniper","wonder-guard","slow-start","shed-skin","hydration","rain-dish","ice-body","aftermath",
   "pressure","cute-charm","synchronize","rock-head","oblivious","serene-grace","compound-eyes","shadow-tag","simple","flower-gift","liquid-ooze","shell-armor","battle-armor","soundproof","early-bird","suction-cups","damp","steadfast","truant"]);
-const SOUND_MOVES=new Set(["하이퍼보이스","폭음파","음파","초음파","울음소리","싫은소리","노래","미청","금속음","풀피리","벌레의야단법석","수다","우렁찬울음","자장가","멸망의노래","치료방울","아로마테라피"]);
+const SOUND_MOVES=new Set(["하이퍼보이스","폭음파","음파","초음파","울음소리","싫은소리","노래","미청","금속음","풀피리","벌레의야단법석","수다","우렁찬울음","자장가","멸망의노래","치료방울","아로마테라피","노래하기","코골기"]);
 function pickAbility(abs){ if(!abs||!abs.length)return null; return abs.find(a=>IMPL_ABIL.has(a))||abs[0]; }
 // 역할에 맞는 합리적 도구 배정 (렌탈용)
 function rationalItem(set){
@@ -665,8 +740,8 @@ function assignDiverseItems(sets){
   }
   return out;
 }
-const PUNCH=new Set(["불꽃펀치","냉동펀치","번개펀치","기합펀치","마하펀치","드레인펀치","코멧펀치","불릿펀치","혼란펀치","승천펀치","메가톤펀치","연타펀치"]);
-const NONCONTACT=new Set(["지진","땅고르기","스톤에지","스톤샤워","암석봉인","록블레스트","원시의힘","본래머랭","매그니튜드","대지의힘"]);
+const PUNCH=new Set(["불꽃펀치","냉동펀치","번개펀치","기합펀치","마하펀치","드레인펀치","코멧펀치","불릿펀치","혼란펀치","승천펀치","메가톤펀치","연타펀치","잼잼펀치","폭발펀치","섀도펀치","스카이어퍼"]);
+const NONCONTACT=new Set(["지진","땅고르기","스톤에지","스톤샤워","암석봉인","록블레스트","원시의힘","본래머랭","매그니튜드","대지의힘","록블라스트"]);
 function isContact(mo){ return !!mo && (mo.struggle || (mo.c==='p' && !NONCONTACT.has(mo.ko))); }
 function statusBlockedByAbil(m,st){
   if(hasAbil(m,'leaf-guard')&&S.weather==='sun')return true;
@@ -831,6 +906,13 @@ async function useMove(att,def,moveName,side){
     moveName=METRONOME_POOL[Math.floor(Math.random()*METRONOME_POOL.length)];mo=M(moveName);
     msg(`손가락을 흔들자… ${mo.ko}이(가) 나왔다!`);await sleep(750);
   }
+  // 조수: 동료의 기술 중 하나를 사용
+  if(mo.ko==='조수'){const mi=att.moves.indexOf(moveName);if(mi>=0)att.pp[mi]=Math.max(0,att.pp[mi]-1);
+    const team=(side==='p')?S.player:S.enemy;
+    const ban=new Set(['조수','손가락흔들기','흉내쟁이','따라하기','잠꼬대','방어','판별','버티기','길동무','도우미','날따름','트릭','바꿔치기','추억의선물','흉내내기']);
+    const pool=[];team.forEach(m=>{if(m!==att)m.moves.forEach(x=>{const o=M(x);if(o&&!ban.has(o.ko)&&!CHARGE_MOVES.has(o.ko))pool.push(x);});});
+    if(!pool.length){msg(`${att.ko}의 조수는 실패했다!`);await sleep(700);return;}
+    moveName=pool[Math.floor(Math.random()*pool.length)];mo=M(moveName);msg(`${att.ko}의 조수! 동료의 ${mo.ko}을(를) 빌려 썼다!`);await sleep(750);}
   // 흉내쟁이: 마지막으로 나온 기술 사용
   if(mo.ko==='흉내쟁이'){const mi=att.moves.indexOf(moveName);if(mi>=0)att.pp[mi]=Math.max(0,att.pp[mi]-1);const last=S.lastGlobalMove;
     if(last&&last!=='__struggle__'&&M(last)){moveName=last;mo=M(moveName);msg(`${att.ko}의 흉내쟁이! ${mo.ko}!`);await sleep(650);}else{msg(`${att.ko}의 흉내쟁이는 실패했다!`);await sleep(700);return;}}
@@ -843,7 +925,7 @@ async function useMove(att,def,moveName,side){
   // 도발 중 변화기 사용 불가 (안전장치; UI/AI가 이미 제한)
   if(moveName!=='__struggle__'&&att.taunt>0&&mo.c==='x'){msg(`${att.ko}은(는) 도발 때문에 ${mo.ko}을(를) 쓸 수 없다!`);await sleep(750);return;}
   // 솔라빔: 2턴 충전 (쾌청이면 즉시 발사)
-  let skipPP=false;
+  let skipPP=!!(att._bide&&mo.ko==='참기'); // 참기 2·3턴째는 PP 소비 없음
   if(CHARGE_MOVES.has(mo.ko)){
     if(att._charging===moveName){att._charging=null;skipPP=true;}      // 2턴째: 발사(PP는 1턴에 소비)
     else if(!(mo.ko==='솔라빔'&&S.weather==='sun')){                    // 쾌청 솔라빔만 즉발
@@ -858,6 +940,21 @@ async function useMove(att,def,moveName,side){
   const baseName=mo.base||moveName; // Z기술·다이맥스기술은 원래 기술의 PP 사용
   if(!skipPP&&moveName!=='__struggle__'){const mi=att.moves.indexOf(baseName);if(mi>=0){att.pp[mi]=Math.max(0,att.pp[mi]-1);if(def&&hasAbil(def,'pressure')&&(mo.c!=='x'||mo.tg==='foe'))att.pp[mi]=Math.max(0,att.pp[mi]-1);}att.lastMove=baseName;if(att._used)att._used.add(baseName);S.lastGlobalMove=baseName;}
   att._acted=true;
+  // 참기: 2턴 동안 받은 데미지를 2배로 돌려줌
+  if(mo.ko==='참기'){
+    if(!att._bide){att._bide={n:2,dmg:0};att._locked=baseName;msg(`${att.ko}은(는) 참기 시작했다!`);sfx('select');await sleep(800);return;}
+    if(--att._bide.n>0){msg(`${att.ko}은(는) 공격을 참고 있다!`);await sleep(700);return;}
+    const bd=att._bide.dmg*2;att._bide=null;att._locked=null;
+    msg(`${att.ko}은(는) 참았던 힘을 해방했다!`);await sleep(700);
+    if(bd<=0||def.fainted||def.hp<=0){msg("하지만 실패했다!");await sleep(700);return;}
+    if(def.sub>0)def.sub=Math.max(0,def.sub-bd);else def.hp=Math.max(0,def.hp-bd);
+    sfx('super');screenShake();renderBattle();await sleep(600);return;
+  }
+  // 조건에 따라 위력·타입이 바뀌는 기술
+  {const r=dynMove(att,def,mo,baseName);
+   if(r.fail){msg(`${att.ko}의 ${mo.ko}! ${r.fail}`);await sleep(850);return;}
+   if(r.done){msg(`${att.ko}의 ${mo.ko}!`);await sleep(600);renderBattle();for(const l of r.done){msg(l);await sleep(750);}return;}
+   mo=r.mo;}
   // 특수 조건 기술
   if(mo.ko==='비장의무기'){const others=att.moves.filter(m=>m!==moveName);if(others.length&&!(att._used&&others.every(m=>att._used.has(m)))){msg(`${att.ko}은(는) 다른 기술을 다 쓰지 않아 비장의무기를 쓸 수 없다!`);await sleep(900);return;}}
   if(mo.ko==='힘껏펀치'&&((att._tookPhys||0)>0||(att._tookSpec||0)>0)){msg(`${att.ko}은(는) 공격을 받아 힘을 모으지 못했다!`);await sleep(900);return;}
@@ -896,11 +993,14 @@ async function useMove(att,def,moveName,side){
   if(def._protect&&(mo.c!=='x'||mo.tg==='foe')&&(!mo.gx||def._maxGuard)){msg(`${def.ko}은(는) 공격을 막아냈다!`);await sleep(650);return;}
   if(def._protect&&mo.gx){msg(`${def.ko}은(는) 공격을 완전히 막지 못했다!`);await sleep(600);}
   // 공중날기·구멍파기·다이빙 등: 무적 상태 회피
-  if(def._charging&&CHARGE_INVULN.has(M(def._charging).ko)&&mo.tg==='foe'){msg(`${att.ko}의 공격은 ${def.ko}에게 닿지 않았다!`);sfx('miss');await sleep(700);return;}
+  if(def._charging&&CHARGE_INVULN.has(M(def._charging).ko)&&mo.tg==='foe'&&!hitsInvuln(M(def._charging).ko,mo.ko)){msg(`${att.ko}의 공격은 ${def.ko}에게 닿지 않았다!`);sfx('miss');await sleep(700);return;}
   // 방음: 소리 기술 무효
   if(hasAbil(def,'soundproof')&&SOUND_MOVES.has(mo.ko)){msg(`${def.ko}은(는) 방음으로 ${mo.ko}을(를) 막아냈다!`);await sleep(750);return;}
   // 매직미러: 상대를 노린 변화기를 튕겨냄
-  if(hasAbil(def,'magic-bounce')&&mo.c==='x'&&mo.tg==='foe'){msg(`${def.ko}은(는) 매직미러로 ${mo.ko}을(를) 튕겨냈다!`);await sleep(800);return;}
+  if((hasAbil(def,'magic-bounce')||def._magicCoat)&&mo.c==='x'&&mo.tg==='foe'&&mo.ko!=='추억의선물'){
+    msg(`${def.ko}은(는) ${def._magicCoat?'매직코트':'매직미러'}로 ${mo.ko}을(를) 튕겨냈다!`);await sleep(800);
+    const bl=[];if(mo.cg==='force-switch')forceSwitch(side,bl);else await applyStatusMove(def,att,mo,bl);
+    renderBattle();for(const l of bl){msg(l);await sleep(720);}return;}
   // 명중 (자기대상·필중기는 명중판정 없음 → 상대 회피율 영향 안 받음)
   const neverMiss=(mo.ac==null)||(mo.tg==='self')||mo.struggle||hasAbil(att,'no-guard')||hasAbil(def,'no-guard');
   let acc=mo.ac||100;
@@ -913,10 +1013,13 @@ async function useMove(att,def,moveName,side){
   const evaMul=def.foresight?1:stageMul(def.stage.eva); // 꿰뚫어보기: 회피 무시
   const accMod=stageMul(att.stage.acc)/evaMul;
   if(!neverMiss && !lockedOn && Math.random()*100>acc*accMod){msg(`${att.ko}의 공격은 빗나갔다!`);sfx('miss');await sleep(650);
+    if(mo.ko==='구르기'||mo.ko==='아이스볼'){att._locked=null;att._rollN=0;} att._lastExec=null; // 빗나가면 연속 효과 끊김
     if(CRASH_MOVES.has(mo.ko)&&!hasAbil(att,'magic-guard')){att.hp=Math.max(0,att.hp-Math.floor(att.maxHp/2));renderBattle();msg(`${att.ko}은(는) 착지에 실패해 데미지를 입었다!`);await sleep(700);}
     return;}
 
   const logs=[];let dealt=0;
+  // 깨뜨리다: 리플렉터·빛의장막 파괴
+  if(mo.ko==='깨뜨리다'&&effVs(mo.t,def,mo)>0){const dS=(def===active())?S.pScreen:S.eScreen;if(dS&&(dS.reflect>0||dS.light>0)){dS.reflect=0;dS.light=0;msg("벽을 깨뜨렸다!");await sleep(650);}}
   if((mo.c!=='x'&&mo.p>0)||FIXED_MOVES.has(mo.ko)||mo.cg==='ohko'){
     // 타입 면역(0배): 데미지·부가효과 전부 무효
     if(!mo.struggle&&effVs(mo.t,def,mo)===0){msg(`${def.ko}에게는 효과가 없는 것 같다…`);await sleep(750);return;}
@@ -953,7 +1056,7 @@ async function useMove(att,def,moveName,side){
         for(let h=0;h<hits;h++){
           if(def.fainted||def.hp<=0)break;
           if(h>0)launchProjectile(side,mo);
-          let hd=(h===0)?f.dmg:calcDamage(att,def,mo).dmg;
+          let hd=(h===0)?f.dmg:calcDamage(att,def,mo.ko==='트리플킥'?{...mo,p:10*(h+1)}:mo).dmg; // 트리플킥: 10→20→30
           if(h===0&&eff>1&&RESIST_BERRY[def.item]===mo.t){hd=Math.max(1,Math.floor(hd*0.5));logs.push(`${def.ko}은(는) ${def.itemKo}(으)로 데미지를 줄였다!`);def.item='';}
           if(def.sub>0){def.sub-=hd;if(def.sub<0)def.sub=0;total+=hd;}
           else{
@@ -1009,6 +1112,7 @@ async function useMove(att,def,moveName,side){
       if(mo.fl&&chance(mo.fl*sg)&&!hasAbil(def,'inner-focus'))def._flinch=true;
       // 왕의징표/예리한손톱: 10% 풀죽음
       if(!mo.fl&&(hasItem(att,"King's Rock")||hasItem(att,'Razor Fang'))&&chance(10)&&!hasAbil(def,'inner-focus'))def._flinch=true;
+      if(!mo.fl&&hasAbil(att,'stench')&&chance(10)&&!hasAbil(def,'inner-focus'))def._flinch=true; // 악취
     }
     // 능력변화 (데미지기)
     if(mo.st&&!(sheer&&mo.stc)&&(!mo.stc||chance(mo.stc*sg))){
@@ -1018,6 +1122,7 @@ async function useMove(att,def,moveName,side){
         else if(def.sub<=0&&!def.fainted&&!hasAbil(def,'shield-dust'))changeStage(def,stat,delta,logs,false);
       }
     }
+    if(dealt>0)postHitEffects(att,def,mo,logs);
     // 다이맥스 기술 부가효과 (날씨 / 능력 변화)
     if(mo.maxFx&&dealt>0){const fx=mo.maxFx;
       if(fx.w&&S.weather!==fx.w){S.weather=fx.w;S.weatherN=5;logs.push(({sun:'햇살이 강해졌다!',rain:'비가 내리기 시작했다!',sand:'모래바람이 일었다!',hail:'싸라기눈이 내리기 시작했다!'})[fx.w]);}
@@ -1050,6 +1155,37 @@ async function useMove(att,def,moveName,side){
 
 async function applyStatusMove(att,def,mo,logs){
   const nm=mo.ko;
+  // 싱글배틀에서는 의미 없는 기술
+  if(nm==="도우미"||nm==="날따름"){logs.push("하지만 실패했다!");return;}
+  if(nm==="튀어오르기"){logs.push("하지만 아무 일도 일어나지 않았다!");return;}
+  // 비축하기 / 꿀꺽
+  if(nm==="비축하기"){if((att._stock||0)>=3){logs.push("하지만 더 이상 비축할 수 없다!");return;}
+    att._stock=(att._stock||0)+1;logs.push(`${att.ko}은(는) 힘을 ${att._stock}번 비축했다!`);changeStage(att,'def',1,logs,true);changeStage(att,'spd',1,logs,true);return;}
+  if(nm==="꿀꺽"){const c=att._stock||0;if(!c){logs.push("하지만 비축한 힘이 없어 실패했다!");return;}
+    att.hp=Math.min(att.maxHp,att.hp+Math.floor(att.maxHp*[0,.25,.5,1][c]));att._stock=0;att.stage.def=Math.max(-6,att.stage.def-c);att.stage.spd=Math.max(-6,att.stage.spd-c);
+    sfx('heal');logs.push(`${att.ko}은(는) 비축한 힘을 삼켜 체력을 회복했다!`);return;}
+  // 경혈찌르기: 무작위 능력 2랭크
+  if(nm==="경혈찌르기"){const ks=['atk','def','spa','spd','spe','acc','eva'].filter(k=>att.stage[k]<6);
+    if(!ks.length){logs.push("하지만 실패했다!");return;}changeStage(att,ks[Math.floor(Math.random()*ks.length)],2,logs,true);return;}
+  // 리사이클: 써버린 도구 되살리기
+  if(nm==="리사이클"){if(!att.item&&att.origItem&&!att._noRecycle){att.item=att.origItem;att.itemKo=(DATA.items&&DATA.items[att.item])||att.item;logs.push(`${att.ko}은(는) ${att.itemKo}을(를) 되살렸다!`);}else logs.push("하지만 실패했다!");return;}
+  // 봉인: 자신과 같은 기술을 상대가 못 씀
+  if(nm==="봉인"){if(!att._imprison&&def.moves.some(x=>att.moves.includes(x))){att._imprison=true;logs.push(`${att.ko}은(는) 자신과 같은 기술을 봉인했다!`);}else logs.push("하지만 실패했다!");return;}
+  // 매직코트: 이번 턴 변화기 반사
+  if(nm==="매직코트"){att._magicCoat=true;logs.push(`${att.ko}은(는) 매직코트로 몸을 감쌌다!`);return;}
+  // 흉내내기: 상대의 마지막 기술을 배틀 동안 익힘
+  if(nm==="흉내내기"){const lm=def.lastMove;const i=att.moves.findIndex(x=>M(x)&&M(x).ko==='흉내내기');
+    if(lm&&lm!=='__struggle__'&&M(lm)&&!M(lm).base&&i>=0&&!att.moves.includes(lm)&&!['흉내내기','손가락흔들기','발버둥'].includes(M(lm).ko)){
+      att._mimicOrig={i,name:att.moves[i],pp:att.pp[i],maxpp:att.maxpp[i]};att.moves[i]=lm;att.pp[i]=att.maxpp[i]=5;logs.push(`${att.ko}은(는) ${M(lm).ko}을(를) 흉내 냈다!`);}
+    else logs.push("하지만 실패했다!");return;}
+  // 텍스처2: 상대 마지막 기술에 강한 타입으로
+  if(nm==="텍스처2"){const lm=def.lastMove&&M(def.lastMove);if(!lm){logs.push("하지만 실패했다!");return;}
+    const c=Object.keys(TYPE_KR).filter(x=>typeMult(lm.t,[x])<1&&!att.types.includes(x));if(!c.length){logs.push("하지만 실패했다!");return;}
+    const nt=c[Math.floor(Math.random()*c.length)];att.types=[nt];logs.push(`${att.ko}은(는) ${TYPE_KR[nt]} 타입이 되었다!`);return;}
+  // 추억의선물: 상대 공격·특공 2랭크 하락 후 기절
+  if(nm==="추억의선물"){for(const [st,dl] of (mo.st||[]))changeStage(def,st,dl,logs,false);att.hp=0;logs.push(`${att.ko}은(는) 모든 힘을 쏟아냈다…`);return;}
+  if(nm==="작아지기")att._minimized=true;   // → 짓밟기 2배
+  if(nm==="웅크리기")att._curled=true;      // → 구르기·아이스볼 2배
   // 도발
   if(nm==="도발"){if(def.taunt<=0){def.taunt=3;logs.push(`${def.ko}은(는) 도발을 받아 변화기술을 사용할 수 없게 되었다!`);}else logs.push("하지만 실패했다!");return;}
   // 앙코르
@@ -1063,7 +1199,7 @@ async function applyStatusMove(att,def,mo,logs){
   }
   // 방어류
   if(nm==="다이월"){att._protect=true;att._maxGuard=true;logs.push(`${att.ko}은(는) 다이월로 몸을 지켰다!`);return;}
-  if(nm==="방어"||nm==="가드"||nm==="니들가드"){att._protect=true;att.protectStreak++;logs.push(`${att.ko}은(는) 몸을 지켜 태세를 갖췄다!`);return;}
+  if(nm==="방어"||nm==="판별"||nm==="가드"||nm==="니들가드"){att._protect=true;att.protectStreak++;logs.push(`${att.ko}은(는) 몸을 지켜 태세를 갖췄다!`);return;}
   // 버티기
   if(nm==="버티기"){att._endure=true;logs.push(`${att.ko}은(는) 공격을 버틸 준비를 했다!`);return;}
   // 배턴터치 (교체 + 랭크 계승)
@@ -1141,7 +1277,7 @@ async function applyStatusMove(att,def,mo,logs){
   // 악몽
   if(nm==="악몽"){if(def.status==='slp'&&!def.nightmare){def.nightmare=true;logs.push(`${def.ko}은(는) 악몽에 시달리기 시작했다!`);}else logs.push("하지만 실패했다!");return;}
   // 기충전
-  if(nm==="기충전"){changeStage(att,'spd',1,logs,true);att._charged=true;logs.push(`${att.ko}은(는) 전기를 모았다!`);return;}
+  if(nm==="충전"||nm==="기충전"){changeStage(att,'spd',1,logs,true);att._charged=true;logs.push(`${att.ko}은(는) 전기를 모았다!`);return;}
   // 트릭룸
   if(nm==="트릭룸"){if(S.trickRoom>0){S.trickRoom=0;logs.push("뒤틀린 공간이 원래대로 돌아갔다!");}else{S.trickRoom=5;logs.push("사방이 뒤틀려 느린 포켓몬이 먼저 움직이게 되었다!");}return;}
   // 물놀이/흙놀이
@@ -1156,7 +1292,7 @@ async function applyStatusMove(att,def,mo,logs){
   // 파워트릭: 공↔방 교환
   if(nm==="파워트릭"){const t=att.stats.atk;att.stats.atk=att.stats.def;att.stats.def=t;logs.push(`${att.ko}은(는) 공격과 방어를 바꿨다!`);return;}
   // 꿰뚫어보기/판별: 고스트도 노멀/격투로 맞힘 + 회피 무시
-  if(nm==="꿰뚫어보기"||nm==="판별"){def.foresight=true;logs.push(`${att.ko}은(는) ${def.ko}을(를) 꿰뚫어봤다!`);return;}
+  if(nm==="꿰뚫어보기"){def.foresight=true;logs.push(`${att.ko}은(는) ${def.ko}을(를) 꿰뚫어봤다!`);return;}
   // 마음의눈: 다음 공격 필중
   if(nm==="마음의눈"){att.lockOn=true;logs.push(`${att.ko}은(는) 조준을 맞췄다!`);return;}
   // 사슬묶기: 마지막 기술 봉인
@@ -1462,13 +1598,19 @@ async function doPlayerTurn(moveIdx){
 async function enemySwitchTurn(idx,pMove){
   S._queued={p:pMove,e:null};
   const out=eActive(); if(out&&!out.fainted&&hasAbil(out,'natural-cure')&&out.status){out.status=null;out.toxN=0;}
-  const nm=S.enemy[idx].ko;
-  msg(`상대는 ${eActive().ko}을(를) 불러들였다!`);await sleep(650);
-  S.eIdx=idx;onEnter(eActive());sfx('select');renderBattle();
-  msg(`상대는 ${nm}을(를) 내보냈다!`);await sleep(750);
-  await onSwitchIn(eActive(),'e');
-  if((await handleFaints())==='stop'){S.busy=false;return;}
-  if(!active().fainted&&!eActive().fainted) await useMove(active(),eActive(),pMove,'p');
+  const nm=S.enemy[idx].ko;let pursued=false;
+  if(M(pMove)&&M(pMove).ko==='따라가때리기'&&!active().fainted){pursued=true;
+    msg(`${active().ko}은(는) 물러나려는 ${out.ko}을(를) 따라가 때렸다!`);await sleep(700);
+    S._pursuit=true;await useMove(active(),out,pMove,'p');S._pursuit=false;
+    if((await handleFaints())==='stop'){S.busy=false;return;}}
+  if(eActive()===out&&!out.fainted){
+    msg(`상대는 ${eActive().ko}을(를) 불러들였다!`);await sleep(650);
+    S.eIdx=idx;onEnter(eActive());sfx('select');renderBattle();
+    msg(`상대는 ${nm}을(를) 내보냈다!`);await sleep(750);
+    await onSwitchIn(eActive(),'e');
+    if((await handleFaints())==='stop'){S.busy=false;return;}
+  }
+  if(!pursued&&!active().fainted&&!eActive().fainted) await useMove(active(),eActive(),pMove,'p');
   const fr=await handleFaints();
   if(fr==='stop'){S.busy=false;return;}
   if(fr!=='ended'){await endTurn(active(),'p');await endTurn(eActive(),'e');
@@ -1479,7 +1621,7 @@ async function enemySwitchTurn(idx,pMove){
   S.busy=false;finishTurn();
 }
 function endOfTurnCleanup(){
-  for(const m of [active(),eActive()]){if(m){m._flinch=false;m._protect=false;m._endure=false;m._tookPhys=0;m._tookSpec=0;m.destinyBond=false;
+  for(const m of [active(),eActive()]){if(m){if(m._bide)m._bide.dmg+=(m._tookPhys||0)+(m._tookSpec||0);m._magicCoat=false;m._flinch=false;m._protect=false;m._endure=false;m._tookPhys=0;m._tookSpec=0;m.destinyBond=false;
     if(m.taunt>0)m.taunt--;
     if(m.encore>0){m.encore--;if(m.encore<=0)m.encoreMove=null;}m._maxGuard=false;}}
   {const pm=active();if(pm&&pm.dmax>0){pm.dmax--;if(pm.dmax<=0){endDmax(pm);S._note=`${pm.ko}의 다이맥스가 끝났다!`;}}}
@@ -1548,6 +1690,7 @@ async function onSwitchIn(m,side){
   if(wmap[m.ability]&&S.weather!==wmap[m.ability]){S.weather=wmap[m.ability];S.weatherN=9999;
     al.push(`${m.ko}의 ${m.abilityKo}! ${({sun:'햇살이 강해졌다!',rain:'비가 내리기 시작했다!',sand:'모래바람이 일었다!',hail:'싸라기눈이 내리기 시작했다!'})[wmap[m.ability]]}`);}
   if(hasAbil(m,'download')&&foe&&!foe.fainted){const s=foe.stats.def<=foe.stats.spd?'atk':'spa';al.push(`${m.ko}의 다운로드!`);changeStage(m,s,1,al,true);}
+  if(hasAbil(m,'anticipation')&&foe&&!foe.fainted&&foe.moves.some(x=>{const o=M(x);return o&&(o.cg==='ohko'||(o.c!=='x'&&o.p>0&&typeMult(o.t,m.types)>=2));}))al.push(`${m.ko}은(는) 위험예지로 몸을 떨었다!`);
   if(hasAbil(m,'trace')&&foe&&!foe.fainted&&foe.ability){m.ability=foe.ability;m.abilityKo=ABKO[foe.ability]||foe.ability;al.push(`${m.ko}은(는) 트레이스로 ${foe.ko}의 ${m.abilityKo}을(를) 복사했다!`);}
   if(al.length){renderBattle();for(const l of al){msg(l);await sleep(750);}}
   // 진입 장애물
@@ -1581,6 +1724,12 @@ async function chooseSwitch(i){
   const forced=forcedSwitch;const out=active();
   // 상대는 교체 전 포켓몬을 보고 기술을 고른다 (교체를 미리 알 수 없음)
   const eMove=(!forced&&out&&!out.fainted&&!eActive().fainted)?enemyDecide(false).name:null;
+  let pursued=false;
+  if(eMove&&M(eMove)&&M(eMove).ko==='따라가때리기'){pursued=true; // 따라가때리기: 물러나는 포켓몬을 2배로
+    $("menu-switch").classList.add("hidden");S.busy=true;enableMenu(false);
+    msg(`${eActive().ko}은(는) 물러나려는 ${out.ko}을(를) 따라가 때렸다!`);await sleep(700);
+    S._pursuit=true;await useMove(eActive(),out,eMove,'e');S._pursuit=false;
+    if((await handleFaints())==='stop'){S.busy=false;return;}}
   if(!forced&&out&&!out.fainted&&hasAbil(out,'natural-cure')&&out.status){out.status=null;out.toxN=0;}
   endDmax(out);
   S.pIdx=i;renderBattle();
@@ -1594,7 +1743,7 @@ async function chooseSwitch(i){
   }
   // 자발적 교체 = 턴 소모 → 상대가 공격
   S._queued={p:null,e:null};
-  if(eMove&&!eActive().fainted){
+  if(eMove&&!pursued&&!eActive().fainted){
     await useMove(eActive(),active(),eMove,'e');
     if((await handleFaints())==='stop'){S.busy=false;return;}
     await endTurn(active(),'p');await endTurn(eActive(),'e');
@@ -1737,6 +1886,7 @@ async function doTera(p,t){
 }
 // 배틀이 끝나면 원래 모습으로
 function revertGimmick(m){
+  unMimic(m);m._noRecycle=false;
   if(m._megaBase){Object.assign(m,m._megaBase);m._megaBase=null;}
   if(m._teraOrig){m.origTypes=m._teraOrig;m.types=m._teraOrig.slice();m._teraOrig=null;m.tera=null;}
   endDmax(m);
