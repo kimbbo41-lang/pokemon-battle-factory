@@ -112,6 +112,19 @@
   .footer-note{font-size:11px;opacity:.5;text-align:center;padding:7px;}
   .filter-row{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;}
   select,input{font-family:inherit;padding:6px 8px;border-radius:7px;border:1px solid var(--line);background:#0d1b2a;color:var(--text);}
+  @media (max-width:560px){
+    body{padding:6px;display:block;} #app{min-width:0;max-width:100%;} .screen{padding:10px;}
+    .header{flex-wrap:wrap;gap:6px;padding:9px 12px;}
+    .info-box{min-width:0;flex:1 1 auto;max-width:72%;}
+    .grid>*,.moves>*,.switch-list>*,.action-row>*{min-width:0;}
+    .move-btn small,.movelist,.nat{overflow-wrap:anywhere;}
+    .title-wrap{padding:22px 8px;} .title-wrap h2{font-size:26px;}
+    .header h1{font-size:15px;} .pill{font-size:11px;padding:3px 8px;}
+    .grid{grid-template-columns:repeat(2,1fr);} .switch-list{grid-template-columns:repeat(2,1fr);}
+    .action-row{flex-wrap:wrap;} .action-row button{flex:1 1 45% !important;font-size:13px;padding:8px 6px;}
+    .swap-cols{grid-template-columns:1fr;}
+    .player-sprite{width:110px;height:110px;} .enemy-sprite{width:90px;height:90px;}
+  }
 </style>
 <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 </head>
@@ -131,6 +144,8 @@
       공식 한글명 · 당시 기술배치 그대로 · <b>완전진화체만</b> 등장<br>
       6마리 중 3마리를 골라 <b>49연승</b>에 도전! 이길 때마다 상대를 <b>스카우트</b>,<br>
       <b>7연승마다 팀 전체를 반납하고 새로 렌탈</b>하며, <b>보상 1개</b>를 고릅니다.</p>
+      <div id="best-rec" style="color:var(--accent);font-weight:bold;margin-top:6px;"></div>
+      <button class="btn-primary hidden" id="btn-continue" style="margin-top:12px;"></button>
       <button class="btn-primary" id="btn-start" style="margin-top:12px;">🏆 혼자하기 (49연승)</button>
       <button class="btn-ghost" id="btn-online" style="margin-top:10px;">🌐 온라인 대전</button>
       <div class="loading" id="dataStat"></div>
@@ -286,7 +301,7 @@ function fixedDamage(att,def,mo){
 }
 const WEIGHT={"1":69,"2":130,"3":1000,"4":85,"5":190,"6":905,"7":90,"8":225,"9":855,"12":320,"15":295,"17":300,"18":395,"20":185,"22":380,"24":650,"25":60,"26":300,"27":120,"28":295,"30":200,"31":600,"33":195,"34":620,"35":75,"36":400,"37":99,"38":199,"40":120,"42":550,"43":54,"44":86,"45":186,"47":295,"48":300,"49":125,"51":333,"53":320,"54":196,"55":766,"57":320,"58":190,"59":1550,"61":200,"62":540,"64":565,"65":480,"66":195,"67":705,"68":1300,"70":64,"71":155,"72":455,"73":550,"74":200,"75":1050,"76":3000,"77":300,"78":950,"79":360,"80":785,"81":60,"82":600,"83":150,"84":392,"85":852,"86":900,"87":1200,"88":300,"89":300,"91":1325,"93":1,"94":405,"95":2100,"96":324,"97":756,"98":65,"99":600,"100":104,"101":666,"102":25,"103":1200,"104":65,"105":450,"106":498,"107":502,"108":655,"109":10,"110":95,"111":1150,"112":1200,"113":346,"114":350,"115":800,"117":250,"118":150,"119":390,"120":345,"121":800,"122":545,"123":560,"124":406,"125":300,"126":445,"127":550,"128":884,"130":2350,"131":2200,"133":65,"134":290,"135":245,"136":250,"137":365,"138":75,"139":350,"140":115,"141":405,"142":590,"143":4600,"144":554,"145":526,"146":600,"147":33,"148":165,"149":2100,"152":64,"153":158,"154":1005,"155":79,"156":190,"157":795,"158":95,"159":250,"160":888,"162":325,"164":408,"166":356,"168":335,"169":750,"170":120,"171":225,"176":32,"177":20,"178":150,"180":133,"181":615,"182":58,"184":285,"185":380,"186":339,"188":10,"189":30,"190":115,"192":85,"193":380,"195":750,"196":265,"197":270,"198":21,"199":795,"200":10,"202":285,"203":415,"205":1258,"206":140,"207":648,"208":4000,"209":78,"210":487,"211":39,"212":1180,"213":205,"214":540,"215":280,"216":88,"217":1258,"219":550,"221":558,"222":50,"223":120,"224":285,"225":160,"226":2200,"227":505,"228":108,"229":350,"230":1520,"231":335,"232":1200,"233":325,"234":712,"237":480,"238":60,"239":235,"240":214,"241":755,"242":468,"243":1780,"244":1980,"245":1870,"246":720,"247":1520,"248":2020,"252":50,"253":216,"254":522,"255":25,"256":195,"257":520,"258":76,"259":280,"260":819,"262":370,"264":325,"267":284,"269":316,"271":325,"272":550,"274":280,"275":596,"277":198,"279":280,"282":484,"284":36,"286":392,"288":465,"289":1305,"291":120,"292":12,"294":405,"295":840,"297":2538,"299":970,"301":326,"302":110,"303":115,"304":600,"305":1200,"306":3600,"308":315,"310":402,"311":42,"312":42,"313":177,"314":177,"315":20,"317":800,"318":208,"319":888,"320":1300,"321":3980,"322":240,"323":2200,"324":804,"325":306,"326":715,"327":50,"329":153,"330":820,"331":513,"332":774,"333":12,"334":206,"335":403,"336":525,"337":1680,"338":1540,"340":236,"341":115,"342":328,"343":215,"344":1080,"345":238,"346":604,"347":125,"348":682,"350":1620,"351":8,"352":220,"353":23,"354":125,"355":150,"356":306,"357":1000,"358":10,"359":470,"361":168,"362":2565,"364":876,"365":1506,"366":525,"367":270,"368":226,"369":234,"370":87,"371":421,"372":1105,"373":1026,"375":2025,"376":5500,"377":2300,"378":1750,"379":2050,"380":400,"381":600,"387":102,"388":970,"389":3100,"390":62,"391":220,"392":550,"393":52,"394":230,"395":845,"396":20,"397":155,"398":249,"399":200,"400":315,"401":22,"402":255,"403":95,"404":305,"405":420,"406":12,"407":145,"408":315,"409":1025,"410":570,"411":1495,"412":34,"413":65,"414":233,"415":55,"416":385,"417":39,"418":295,"419":335,"420":33,"421":93,"422":63,"423":299,"424":203,"425":12,"426":150,"427":55,"428":333,"429":44,"430":273,"431":39,"432":438,"433":6,"434":192,"435":380,"436":605,"437":1870,"438":150,"439":130,"440":244,"441":19,"443":205,"444":560,"445":950,"446":1050,"447":202,"448":540,"449":495,"450":3000,"451":120,"452":615,"453":230,"454":444,"455":270,"456":70,"457":240,"458":650,"459":505,"460":1355,"461":340,"462":1800,"463":1400,"464":2828,"465":1286,"466":1386,"467":680,"468":380,"469":515,"470":255,"471":259,"472":425,"473":2910,"474":340,"475":520,"476":3400,"477":1066,"478":266,"479":3,"485":4300,"486":4200,"488":856,"815":330,"861":610,"888":1100}; // 몸무게(0.1kg, PokeAPI) — 안다리걸기/풀묶기
 // 조건에 따라 위력·타입이 바뀌는 기술 → 이번 사용에 쓸 기술 사본 (실패 시 {fail}, 별도 처리 완료 시 {done})
-function dynMove(att,def,mo,baseName){
+function dynMove(att,def,mo,baseName,dry){ // dry=true: AI 예측용(상태 변경 없음)
   const k=mo.ko;let p=mo.p,t=mo.t,x={};
   const dc=def&&def._charging?M(def._charging).ko:null;
   switch(k){
@@ -305,12 +320,12 @@ function dynMove(att,def,mo,baseName){
     case '잠깨움뺨치기': if(def.status==='slp')p*=2;break;
     case '안다리걸기': case '풀묶기': {const w=(WEIGHT[def.dex]||500)/10;p=w<10?20:w<25?40:w<50?60:w<100?80:w<200?100:120;break;}
     case '짓밟기': if(def._minimized)p*=2;break;
-    case '연속자르기': {const c=att._lastExec==='연속자르기'?Math.min(2,(att._furyN||0)+1):0;att._furyN=c;p=40*2**c;break;}
-    case '구르기': case '아이스볼': {const c=att._rollN||0;p=30*2**c*(att._curled?2:1);att._rollN=c+1;
+    case '연속자르기': {const c=att._lastExec==='연속자르기'?Math.min(2,(att._furyN||0)+1):0;if(!dry)att._furyN=c;p=40*2**c;break;}
+    case '구르기': case '아이스볼': {const c=att._rollN||0;p=30*2**c*(att._curled?2:1);if(dry)break;att._rollN=c+1;
       if(att._rollN>=5){att._rollN=0;att._locked=null;}else att._locked=baseName;break;}
-    case '토해내기': {const c=att._stock||0;if(!c)return {fail:'하지만 비축한 힘이 없어 실패했다!'};p=100*c;att._stock=0;
+    case '토해내기': {const c=att._stock||0;if(!c)return {fail:'하지만 비축한 힘이 없어 실패했다!'};p=100*c;if(dry)break;att._stock=0;
       att.stage.def=Math.max(-6,att.stage.def-c);att.stage.spd=Math.max(-6,att.stage.spd-c);break;}
-    case '프레젠트': {const r=Math.random();
+    case '프레젠트': {if(dry){p=52;break;}const r=Math.random();
       if(r<0.2){def.hp=Math.min(def.maxHp,def.hp+Math.floor(def.maxHp/4));sfx('heal');return {done:[`${def.ko}은(는) 선물을 받아 체력을 회복했다!`]};}
       p=r<0.6?40:r<0.9?80:120;break;}
     case '비밀의힘': x={ail:'par',ailc:30};break;
@@ -319,8 +334,8 @@ function dynMove(att,def,mo,baseName){
     case '파도타기': case '바다회오리': if(dc==='다이빙')p*=2;break;
     case '따라가때리기': if(S._pursuit)p*=2;break;
   }
-  if(att._charged&&t==='electric'&&mo.c!=='x'){p*=2;att._charged=false;} // 충전
-  att._lastExec=k;
+  if(att._charged&&t==='electric'&&mo.c!=='x'){p*=2;if(!dry)att._charged=false;} // 충전
+  if(!dry)att._lastExec=k;
   return {mo:(p!==mo.p||t!==mo.t||x.ail)?{...mo,p,t,...x}:mo};
 }
 // 공중날기·구멍파기·다이빙 중에도 맞힐 수 있는 기술
@@ -489,7 +504,7 @@ function legalMoves(m){
 /* ===== 상태 ===== */
 let S={round:1,player:[],enemy:[],pIdx:0,eIdx:0,busy:false,weather:null,weatherN:0,pHaz:{},eHaz:{}};
 function updateProgress(){const block=Math.floor((S.round-1)/7)+1,lr=((S.round-1)%7)+1;$("progress").textContent=`${S.round-1}연승 / 49 · ${block}세트(${lr}/7)`;}
-function show(s){["title","online","draft","battle","swap","reward","result"].forEach(x=>{const el=$("screen-"+x);if(el)el.classList.add("hidden");});$("screen-"+s).classList.remove("hidden");}
+function show(s){if(s==='title')setTimeout(updateTitleSave,0);["title","online","draft","battle","swap","reward","result"].forEach(x=>{const el=$("screen-"+x);if(el)el.classList.add("hidden");});$("screen-"+s).classList.remove("hidden");}
 const active=()=>S.player[S.pIdx];
 const eActive=()=>S.enemy[S.eIdx];
 
@@ -519,7 +534,7 @@ function pickSets(pool,n,exclude){
 let draftSets=[],draftPicks=[],draftItems=[],rerollsLeft=3;
 function startDraft(reroll){
   if(reroll){ if(rerollsLeft<=0)return; rerollsLeft--; }
-  else rerollsLeft=3+(S.perk==='reroll'?3:0);
+  else{rerollsLeft=3+(S.perk==='reroll'?3:0);saveRun('draft');}
   updateProgress();
   const pool=S.perk==='strong'?SETS_FE_SORTED.slice(Math.floor(SETS_FE_SORTED.length*.45)):roundPool(S.round);
   const nDraft=S.perk==='wide'?9:6;
@@ -567,6 +582,7 @@ $("btn-confirm-draft").onclick=()=>{
 
 /* ===== 라운드 시작 ===== */
 async function startRound(fromDraft){
+  saveRun('battle');
   updateProgress();
   const iv=ivForRound(S.round);
   S.player.forEach(revertGimmick);S.gimmickUsed=false;S.gArmed=false;
@@ -1453,6 +1469,7 @@ function estimateDamage(att,def,mo){
   if(mo.ko==='코골기'&&att.status!=='slp')return 0;   // 조건부: 자신 수면
   if(mo.ko==='속이기'&&!att._fakeOutOK)return 0;      // 조건부: 첫 턴
   if(FIXED_MOVES.has(mo.ko)){if(!mo.struggle&&typeMult(mo.t,def.types)===0)return 0;return fixedDamage(att,def,mo)||0;}
+  if(!mo.base){const r=dynMove(att,def,mo,null,true);if(!r.mo)return 0;mo=r.mo;} // 조건부 위력·타입
   if(!mo.p)return 0;
   if(!mo.struggle&&typeMult(mo.t,def.types)===0)return 0;
   // 흡수/무효 특성
@@ -1544,6 +1561,19 @@ function enemyChooseMove(e,p){
       else if(nm==="하품")score=(!p.status&&p.drowsy<=0&&pThreat<0.6)?32:4;
       else if(nm==="헤롱헤롱")score=(!p.attract)?24:3;
       else if(nm==="아픔나누기")score=(e.hp<e.maxHp*0.4&&p.hp>p.maxHp*0.6)?40:5;
+      else if(nm==="비축하기")score=((e._stock||0)<3&&e.hp>e.maxHp*0.5&&pThreat<0.5)?40:4;
+      else if(nm==="꿀꺽")score=((e._stock||0)>0&&e.hp<e.maxHp*0.5)?30+15*e._stock:2;
+      else if(nm==="경혈찌르기")score=(e.hp>e.maxHp*0.6&&pThreat<0.5)?34:6;
+      else if(nm==="리사이클")score=(!e.item&&e.origItem&&!e._noRecycle)?30:2;
+      else if(nm==="봉인")score=(!e._imprison&&p.moves.some(x=>e.moves.includes(x)))?30:2;
+      else if(nm==="매직코트")score=p.moves.some(x=>{const o=M(x);return o&&o.c==='x'&&o.tg==='foe';})?26:3;
+      else if(nm==="흉내내기")score=(p.lastMove&&M(p.lastMove)&&M(p.lastMove).c!=='x'&&!e.moves.includes(p.lastMove))?22:3;
+      else if(nm==="텍스처2")score=(p.lastMove&&M(p.lastMove)&&M(p.lastMove).c!=='x')?28:3;
+      else if(nm==="추억의선물")score=e.hp<e.maxHp*0.25?50:2;
+      else if(nm==="충전")score=(!e._charged&&e.moves.some(x=>M(x)&&M(x).t==='electric'&&M(x).c!=='x'))?36:4;
+      else if(nm==="조수")score=20;
+      else if(nm==="도우미"||nm==="날따름"||nm==="튀어오르기")score=0;
+      else if(nm==="방어"||nm==="판별")score=(e.protectStreak>0||e.lastMove===mv)?2:((p.status==='tox'||p.status==='brn'||p.seeded||p.perish>0)?40:10);
       else if(nm==="손가락흔들기")score=14;
       else if(mo.heal){score=e.hp<e.maxHp*0.4?86:e.hp<e.maxHp*0.65?46:5;if(pThreat>=0.95&&!eFast)score*=0.35;}
       else if(mo.ail){
@@ -1721,6 +1751,7 @@ function openSwitch(forced){
     if(alive.length){let cand=alive[0],best=1e9;for(const i of alive){const inFrac=maxThreat(eActive(),S.player[i]);if(inFrac<best){best=inFrac;cand=i;}}setTimeout(()=>chooseSwitch(cand),700);}}
 }
 async function chooseSwitch(i){
+  if(ONLINE&&NET){$("menu-switch").classList.add("hidden");$("menu-main").classList.remove("hidden");netChoose(100+i);return;} // 온라인: 교체는 행동으로 전송
   const forced=forcedSwitch;const out=active();
   // 상대는 교체 전 포켓몬을 보고 기술을 고른다 (교체를 미리 알 수 없음)
   const eMove=(!forced&&out&&!out.fainted&&!eActive().fainted)?enemyDecide(false).name:null;
@@ -1759,14 +1790,45 @@ async function chooseSwitch(i){
 async function winRound(){
   msg("상대 트레이너를 쓰러뜨렸다! 🎉");sfx('win');S.player.forEach(revertGimmick);await sleep(900);
   if(S.round>=49){await winGame();return;}
+  saveRun('won');await afterWin(false);
+}
+async function afterWin(resumed){
   if(S.round%7===0){ // 7연승마다 팀 전체 반납 → 재렌탈
     S.round++;
-    show("battle");
+    if(!resumed){show("battle");
     msg(`🏅 ${Math.floor((S.round-1)/7)}세트 클리어! 규정에 따라 지금까지의 팀을 모두 반납하고, 새 렌탈 포켓몬을 받습니다.`);
-    await sleep(1900);
+    await sleep(1900);}
     S.perk=null;S.perkUsed=false;S.kept=null;S.gimmick=null;openReward();return;
   }
   openSwap();
+}
+
+/* ===== 진행 저장 (배틀 사이 자동 저장 · 배틀 도중 이탈은 패배) ===== */
+const SAVE_KEY='bf4_save_v1',BEST_KEY='bf4_best_v1';
+const serMon=m=>m?{set:m.set,iv:m.iv,item:m.origItem}:null;
+const deMon=o=>o?makeMon(o.set,o.iv,o.item):null;
+function saveRun(phase){if(ONLINE)return;try{localStorage.setItem(SAVE_KEY,JSON.stringify({v:1,phase,round:S.round,perk:S.perk||null,perkUsed:!!S.perkUsed,gimmick:S.gimmick||null,
+  kept:serMon(S.kept),team:S.player.map(serMon),enemy:phase==='won'?S.enemy.map(serMon):[]}));}catch(e){}}
+function loadRun(){try{return JSON.parse(localStorage.getItem(SAVE_KEY)||'null');}catch(e){return null;}}
+function clearRun(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
+function bestStreak(){try{return +localStorage.getItem(BEST_KEY)||0;}catch(e){return 0;}}
+function recordStreak(n){if(n>bestStreak()){try{localStorage.setItem(BEST_KEY,String(n));}catch(e){}return true;}return false;}
+const bestHtml=(isNew)=>`<p style="margin-top:8px">${isNew?'🎉 <b>최고 기록 갱신!</b> ':''}🏅 최고 기록: <b>${bestStreak()}연승</b></p>`;
+function updateTitleSave(){
+  const sv=loadRun(),b=$("btn-continue");
+  if(b){b.classList.toggle("hidden",!sv);if(sv)b.textContent=`▶ 이어하기 (${sv.round-1+(sv.phase==='won'?1:0)}연승${sv.phase==='battle'?' · 배틀 도중 중단됨':''})`;}
+  const n=bestStreak();$("best-rec").textContent=n?`🏅 최고 기록: ${n}연승`:'';
+}
+function resumeRun(){
+  const sv=loadRun();if(!sv)return;reset();
+  Object.assign(S,{round:sv.round,perk:sv.perk,perkUsed:sv.perkUsed,gimmick:sv.gimmick});
+  S.kept=deMon(sv.kept);S.player=(sv.team||[]).map(deMon);
+  if(sv.phase==='battle'){ // 원작 규칙: 배틀 도중 이탈은 패배
+    clearRun();const nb=recordStreak(S.round-1);bgmStop();show("result");
+    $("result-title").textContent="💀 배틀 도중 중단";$("result-title").style.color="var(--hp-red)";
+    $("result-body").innerHTML=`<p>배틀 도중에 게임을 나가서 라운드 <b>${S.round}</b>에서 연승이 끝났습니다.</p><p style="opacity:.75">(원작과 같은 규칙: 배틀 중 이탈은 패배)</p>${bestHtml(nb)}`;return;}
+  if(sv.phase==='won'&&S.player.length){S.enemy=(sv.enemy||[]).map(deMon);afterWin(true);return;}
+  startDraft(false);
 }
 
 /* ===== 7연승 보상 (다음 세트 동안 적용) ===== */
@@ -1935,15 +1997,16 @@ function openSwap(again){
 $("btn-skip-swap").onclick=()=>{S.round++;startRound(false);};
 
 /* ===== 결과 ===== */
-async function winGame(){show("result");bgmStop();$("result-title").textContent="🏆 배틀 팩토리 완전제패! (49연승)";$("result-title").style.color="var(--accent)";
+async function winGame(){clearRun();recordStreak(49);show("result");bgmStop();$("result-title").textContent="🏆 배틀 팩토리 완전제패! (49연승)";$("result-title").style.color="var(--accent)";
   $("result-body").innerHTML=`<p><b>49연승 달성! 골드 심볼</b> 획득!! 🥇</p>
   <div class="switch-list" style="max-width:440px;margin:12px auto;">${S.player.map(m=>`<div class="card"><img class="sprite" src="${spriteURL(m.spriteId)}" style="width:72px;height:72px"><div class="nm">${m.ko}</div></div>`).join("")}</div>`;}
 async function loseGame(){
   if(S.perk==='revive'&&!S.perkUsed&&!ONLINE){S.perkUsed=true;bgmStop();sfx('heal');
     msg("🎁 보상 효과! 이번 패배는 없던 일로… 같은 라운드에 다시 도전합니다!");await sleep(1900);
     setTimeout(()=>startRound(false),0);return;}
+  clearRun();const nb=recordStreak(S.round-1);
   bgmStop();sfx('lose');show("result");$("result-title").textContent="💀 패배…";$("result-title").style.color="var(--hp-red)";
-  $("result-body").innerHTML=`<p>라운드 <b>${S.round}</b>에서 연승이 멈췄습니다.</p>`;}
+  $("result-body").innerHTML=`<p>라운드 <b>${S.round}</b>에서 연승이 멈췄습니다. (<b>${S.round-1}연승</b>)</p>${bestHtml(nb)}`;}
 
 /* ===== 오디오 (Web Audio 합성) ===== */
 const AU={ctx:null,muted:false,bgm:null,master:null};
@@ -2216,17 +2279,29 @@ async function pvpCheckFaints(){
 }
 async function pvpResolve(pAct,eAct){
   NET.rec=true;NET.frames=[];S.busy=true;
-  const pMove=pAct.idx<0?'__struggle__':active().moves[pAct.idx];
-  const eMove=eAct.idx<0?'__struggle__':eActive().moves[eAct.idx];
+  // 교체가 기술보다 먼저
+  for(const [side,act] of [['p',pAct],['e',eAct]]){
+    if(act.idx<100)continue;const to=act.idx-100;
+    const team=side==='p'?S.player:S.enemy,key=side==='p'?'pIdx':'eIdx',cur=team[S[key]];
+    if(!team[to]||team[to].fainted||to===S[key])continue;
+    if(hasAbil(cur,'natural-cure')&&cur.status){cur.status=null;cur.toxN=0;}
+    msg(`${cur.ko}은(는) 돌아왔다!`);await sleep(600);
+    S[key]=to;onEnter(team[to]);sfx('select');renderBattle();msg(`가라, ${team[to].ko}!`);await sleep(700);
+    await onSwitchIn(team[to],side);await pvpCheckFaints();
+  }
+  const mv=(act,m)=>act.idx>=100?null:act.idx<0?'__struggle__':m.moves[act.idx];
+  const pMove=mv(pAct,active()),eMove=mv(eAct,eActive());
   S._queued={p:pMove,e:eMove};active()._acted=false;eActive()._acted=false;
-  const pMo=M(pMove),eMo=M(eMove);
+  const pMo=M(pMove)||{},eMo=M(eMove)||{};
   const pPri=(pMo.pr||0)+((hasAbil(active(),'prankster')&&pMo.c==='x')?1:0);
   const ePri=(eMo.pr||0)+((hasAbil(eActive(),'prankster')&&eMo.c==='x')?1:0);
   let order;
   if(pPri!==ePri)order=pPri>ePri?['p','e']:['e','p'];
   else{const ps=speedOf(active()),es=speedOf(eActive());const faster=S.trickRoom>0?(ps<es):(ps>es);order=ps!==es?(faster?['p','e']:['e','p']):(Math.random()<.5?['p','e']:['e','p']);}
   for(const who of order){
-    if(active().fainted||eActive().fainted)break;
+    if(pvpBattleOver())break;
+    if(who==='p'?!pMove:!eMove)continue; // 교체한 쪽은 기술 없음
+    if(active().fainted||eActive().fainted)continue;
     if(who==='p')await useMove(active(),eActive(),pMove,'p');else await useMove(eActive(),active(),eMove,'e');
     await pvpCheckFaints();if(pvpBattleOver())break;
   }
@@ -2294,6 +2369,8 @@ $("dataStat").textContent=`데이터 로드 완료 · ${Object.keys(DATA.species
 $("btn-mute").onclick=toggleMute;
 $("btn-auto").onclick=toggleAuto;
 $("btn-start").onclick=()=>{audioInit();reset();startDraft(false);};
+$("btn-continue").onclick=()=>{audioInit();resumeRun();};
+updateTitleSave();
 $("btn-restart").onclick=()=>{audioInit();reset();startDraft(false);};
 </script>
 </body>
