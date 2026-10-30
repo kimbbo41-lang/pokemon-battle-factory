@@ -451,6 +451,9 @@ function healFull(m){m.hp=m.maxHp;m.fainted=false;m.status=null;m.toxN=0;m.slpN=
 function onEnter(m){m.taunt=0;m.encore=0;m.encoreMove=null;m.lastMove=null;m.protectStreak=0;m._flashFire=false;m._choiceLock=null;m.types=m.origTypes.slice();
   m.aquaRing=false;m.ingrain=false;m.cursed=false;m.drowsy=0;m.attract=false;m._charging=null;m.trapped=0;m._loafing=false;m._used=new Set();m._locked=null;m._lockTurns=0;
   m._fakeOutOK=true;m.noSwitch=false;m.magnetRise=0;m.destinyBond=false;m.perish=0;m.foresight=false;m.lockOn=false;m.torment=false;m.nightmare=false;m.abilityOff=false;m.disableMove=null;m.disableTurns=0;
+  m.stage={atk:0,def:0,spa:0,spd:0,spe:0,acc:0,eva:0};m.cnfN=0;m.sub=0;m.seeded=false;m.recharge=false; // 랭크·혼란·대타·씨뿌리기 해제
+  m._flinch=false;m._protect=false;m._endure=false;m._maxGuard=false;m._tookPhys=0;m._tookSpec=0;m._acted=false;
+  {const foe=S.player.includes(m)?eActive():active();if(foe&&foe!==m){foe.attract=false;foe.trapped=0;foe.noSwitch=false;}} // 건 포켓몬이 물러나면 헤롱헤롱·속박·교체 봉쇄도 풀림
   m._stock=0;m._rollN=0;m._bide=null;m._furyN=0;m._lastExec=null;m._minimized=false;m._curled=false;m._imprison=false;m._magicCoat=false;unMimic(m);
   m.ability=m.origAbility;m.abilityKo=ABKO[m.origAbility]||m.origAbility;} // 교체/등장 시 해제(트레이스/리베로 원복)
 const hasItem=(m,x)=>!!m&&m.item===x;
@@ -1020,7 +1023,7 @@ async function useMove(att,def,moveName,side){
   if((hasAbil(def,'magic-bounce')||def._magicCoat)&&mo.c==='x'&&mo.tg==='foe'&&mo.ko!=='추억의선물'){
     msg(`${def.ko}은(는) ${def._magicCoat?'매직코트':'매직미러'}로 ${mo.ko}을(를) 튕겨냈다!`);await sleep(800);
     const bl=[];if(mo.cg==='force-switch')forceSwitch(side,bl);else await applyStatusMove(def,att,mo,bl);
-    renderBattle();for(const l of bl){msg(l);await sleep(720);}return;}
+    renderBattle();for(const l of bl){msg(l);await sleep(720);}await settleDrag();return;}
   // 명중 (자기대상·필중기는 명중판정 없음 → 상대 회피율 영향 안 받음)
   const neverMiss=(mo.ac==null)||(mo.tg==='self')||mo.struggle||hasAbil(att,'no-guard')||hasAbil(def,'no-guard');
   let acc=mo.ac||100;
@@ -1171,6 +1174,7 @@ async function useMove(att,def,moveName,side){
 
   renderBattle();
   for(const l of logs){msg(l);await sleep(720);}
+  await settleDrag();
 }
 
 async function applyStatusMove(att,def,mo,logs){
@@ -1429,8 +1433,10 @@ function forceSwitch(targetSide,logs){
   const alive=team.map((m,i)=>i).filter(i=>i!==idx&&!team[i].fainted);
   if(alive.length){const ni=alive[Math.floor(Math.random()*alive.length)];
     if(targetSide==='p')S.pIdx=ni;else S.eIdx=ni;
-    logs.push(`${team[ni].ko}이(가) 끌려나왔다!`);}
+    onEnter(team[ni]);S._dragged={m:team[ni],side:targetSide};logs.push(`${team[ni].ko}이(가) 끌려나왔다!`);}
 }
+// 끌려나온 포켓몬의 등장 처리 (특성·스텔스록·압정)
+async function settleDrag(){const d=S._dragged;if(!d)return;S._dragged=null;await onSwitchIn(d.m,d.side);}
 // ===== 유턴/배턴터치 교체 =====
 async function handlePivot(side){
   if(S._pivotPending!==side)return;
@@ -1438,30 +1444,30 @@ async function handlePivot(side){
   const isP=side==='p'; const team=isP?S.player:S.enemy; const idx=isP?S.pIdx:S.eIdx; const cur=team[idx];
   if(!cur||cur.fainted){if(cur)cur._batonPass=false;return;}
   const alive=team.map((m,i)=>i).filter(i=>i!==idx&&!team[i].fainted);
-  const passStages=cur._batonPass?Object.assign({},cur.stage):null; cur._batonPass=false;
+  const pass=cur._batonPass?{stage:Object.assign({},cur.stage),cnfN:cur.cnfN,sub:cur.sub,seeded:cur.seeded}:null; cur._batonPass=false;
   if(!alive.length)return;
-  if(isP&&!AUTO){ await new Promise(res=>openPivotMenu(res,passStages)); }
+  if(isP&&!AUTO){ await new Promise(res=>openPivotMenu(res,pass)); }
   else{ let cand=alive[0],best=1e9;const foe=isP?eActive():active();
     for(const i of alive){const fr=maxThreat(foe,team[i]);if(fr<best){best=fr;cand=i;}}
-    await doPivotSwitch(side,cand,passStages);
+    await doPivotSwitch(side,cand,pass);
   }
 }
-async function doPivotSwitch(side,idx,passStages){
+async function doPivotSwitch(side,idx,pass){
   const isP=side==='p'; const cur=isP?active():eActive();
   msg(`${isP?'':'상대의 '}${cur.ko}은(는) 돌아왔다!`);await sleep(650);
   if(isP){endDmax(active());S.pIdx=idx;}else S.eIdx=idx;
   const nm=isP?active():eActive(); onEnter(nm);
-  if(passStages)nm.stage=Object.assign({},passStages); // 배턴터치 랭크 계승
+  if(pass)Object.assign(nm,pass); // 배턴터치: 랭크·혼란·대타·씨뿌리기 계승
   renderBattle();msg(`${isP?'가라, ':'상대는 '}${nm.ko}${isP?'!':'을(를) 내보냈다!'}`);sfx('select');await sleep(750);
   await onSwitchIn(nm,side);
 }
-function openPivotMenu(resolve,passStages){
+function openPivotMenu(resolve,pass){
   $("menu-main").classList.add("hidden");$("menu-switch").classList.remove("hidden");$("btn-switch-cancel").classList.add("hidden");
   const list=$("switch-list");list.innerHTML="";
   msg("교체할 포켓몬을 선택하세요! (유턴/배턴터치)");
   S.player.forEach((m,i)=>{const cur=i===S.pIdx;const b=document.createElement("button");b.className="card";b.style.padding="8px";b.disabled=m.fainted||cur;
     b.innerHTML=`<img class="sprite" src="${spriteURL(m.spriteId,true)}" style="width:64px;height:64px;${m.fainted?'filter:grayscale(1);opacity:.4':''}" onerror="this.src='${spriteURL(m.spriteId)}'"><div class="nm" style="font-size:13px">${m.ko}${cur?' (교전중)':''}</div><div class="hp-text" style="text-align:center">HP ${Math.max(0,Math.ceil(m.hp))}/${m.maxHp}${m.fainted?' 💀':''}</div>`;
-    b.onclick=async()=>{$("menu-switch").classList.add("hidden");await doPivotSwitch('p',i,passStages);resolve();};list.appendChild(b);});
+    b.onclick=async()=>{$("menu-switch").classList.add("hidden");await doPivotSwitch('p',i,pass);resolve();};list.appendChild(b);});
 }
 
 /* ===== 턴 진행 ===== */
@@ -1767,10 +1773,9 @@ async function chooseSwitch(i){
     if((await handleFaints())==='stop'){S.busy=false;return;}}
   if(!forced&&out&&!out.fainted&&hasAbil(out,'natural-cure')&&out.status){out.status=null;out.toxN=0;}
   endDmax(out);
-  S.pIdx=i;renderBattle();
+  S.pIdx=i;onEnter(active());renderBattle();
   $("menu-switch").classList.add("hidden");S.busy=true;enableMenu(false);
   msg(`가라, ${active().ko}!`);sfx('select');await sleep(650);
-  onEnter(active());
   await onSwitchIn(active(),'p');
   if((await handleFaints())==='stop'){S.busy=false;return;}
   if(forced){ // 기절 후 교체: 상대는 추가 공격하지 않고 새 턴 시작
