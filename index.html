@@ -964,6 +964,7 @@ async function useMove(att,def,moveName,side){
   const baseName=mo.base||moveName; // Z기술·다이맥스기술은 원래 기술의 PP 사용
   if(!skipPP&&moveName!=='__struggle__'){const mi=att.moves.indexOf(baseName);if(mi>=0){att.pp[mi]=Math.max(0,att.pp[mi]-1);if(def&&hasAbil(def,'pressure')&&(mo.c!=='x'||mo.tg==='foe'))att.pp[mi]=Math.max(0,att.pp[mi]-1);}att.lastMove=baseName;if(att._used)att._used.add(baseName);S.lastGlobalMove=baseName;}
   att._acted=true;
+  if(!['방어','판별','가드','니들가드','버티기'].includes(mo.ko))att.protectStreak=0; // 다른 기술을 쓰면 연속 기록 초기화
   // 참기: 2턴 동안 받은 데미지를 2배로 돌려줌
   if(mo.ko==='참기'){
     if(!att._bide){att._bide={n:2,dmg:0};att._locked=baseName;msg(`${att.ko}은(는) 참기 시작했다!`);sfx('select');await sleep(800);return;}
@@ -1061,7 +1062,7 @@ async function useMove(att,def,moveName,side){
         if(def._endure&&dmg>=def.hp){dmg=def.hp-1;logs.push(`${def.ko}은(는) 공격을 버텨냈다!`);}
         const hb=def.hp;def.hp=Math.max(0,def.hp-dmg);const act=hb-def.hp;if(mo.c==='p')def._tookPhys=act;else if(mo.c==='s')def._tookSpec=act;
       }
-      sfx('hit');hitSpark(side,TYPE_COLOR[mo.t]);sprT.classList.add("shake");renderBattle();await sleep(430);sprT.classList.remove("shake");
+      fxDamage(side,dmg,1,false);sfx('hit');hitSpark(side,TYPE_COLOR[mo.t]);sprT.classList.add("shake");renderBattle();await sleep(430);sprT.classList.remove("shake");
       checkBerries(def,logs);renderBattle();for(const l of logs){msg(l);await sleep(720);}return;
     }
     // OHKO
@@ -1089,7 +1090,7 @@ async function useMove(att,def,moveName,side){
             const hb=def.hp;def.hp=Math.max(0,def.hp-hd);total+=(hb-def.hp);
           }
           landed++;
-          sfx('hit');hitSpark(side,TYPE_COLOR[mo.t]);sprT.classList.add("shake");renderBattle();await sleep(190);sprT.classList.remove("shake");await sleep(70);
+          fxDamage(side,hd,eff,crit&&h===0);sfx('hit');hitSpark(side,TYPE_COLOR[mo.t]);sprT.classList.add("shake");renderBattle();await sleep(190);sprT.classList.remove("shake");await sleep(70);
         }
         dealt=total;if(mo.c==='p')def._tookPhys=total;else if(mo.c==='s')def._tookSpec=total;
         if(eff>=2||crit)screenShake();
@@ -1104,7 +1105,7 @@ async function useMove(att,def,moveName,side){
           if(def._endure&&dmg>=def.hp){dmg=def.hp-1;logs.push(`${def.ko}은(는) 공격을 버텨냈다!`);}
           const hpBefore=def.hp;def.hp=Math.max(0,def.hp-dmg);dealt=hpBefore-def.hp;if(mo.c==='p')def._tookPhys=dealt;else if(mo.c==='s')def._tookSpec=dealt;
         }
-        sfx(eff>=2?'super':(eff>0&&eff<1?'weak':'hit'));hitSpark(side,TYPE_COLOR[mo.t]);if(eff>=2||crit)screenShake();
+        fxDamage(side,dmg,eff,crit);sfx(eff>=2?'super':(eff>0&&eff<1?'weak':'hit'));hitSpark(side,TYPE_COLOR[mo.t]);if(eff>=2||crit)screenShake();
         sprT.classList.add("shake");renderBattle();await sleep(430);sprT.classList.remove("shake");
       }
       let ex="";if(crit)ex+=" 급소에 맞았다!";if(effTxt(eff))ex+=" "+effTxt(eff);
@@ -1178,6 +1179,8 @@ async function useMove(att,def,moveName,side){
   await settleDrag();
 }
 
+// 방어류 성공 판정: 연속으로 쓸수록 1 → 1/2 → 1/4…
+function protectOk(att,logs){if(Math.random()<1/2**att.protectStreak){att.protectStreak++;return true;}att.protectStreak=0;logs.push("하지만 실패했다!");return false;}
 async function applyStatusMove(att,def,mo,logs){
   const nm=mo.ko;
   // 싱글배틀에서는 의미 없는 기술
@@ -1224,9 +1227,9 @@ async function applyStatusMove(att,def,mo,logs){
   }
   // 방어류
   if(nm==="다이월"){att._protect=true;att._maxGuard=true;logs.push(`${att.ko}은(는) 다이월로 몸을 지켰다!`);return;}
-  if(nm==="방어"||nm==="판별"||nm==="가드"||nm==="니들가드"){att._protect=true;att.protectStreak++;logs.push(`${att.ko}은(는) 몸을 지켜 태세를 갖췄다!`);return;}
+  if(nm==="방어"||nm==="판별"||nm==="가드"||nm==="니들가드"){if(!protectOk(att,logs))return;att._protect=true;logs.push(`${att.ko}은(는) 몸을 지켜 태세를 갖췄다!`);return;}
   // 버티기
-  if(nm==="버티기"){att._endure=true;logs.push(`${att.ko}은(는) 공격을 버틸 준비를 했다!`);return;}
+  if(nm==="버티기"){if(!protectOk(att,logs))return;att._endure=true;logs.push(`${att.ko}은(는) 공격을 버틸 준비를 했다!`);return;}
   // 배턴터치 (교체 + 랭크 계승)
   if(nm==="배턴터치"){const isP=att===active();const team=isP?S.player:S.enemy;const idx=isP?S.pIdx:S.eIdx;
     if(team.some((m,i)=>i!==idx&&!m.fainted)){att._batonPass=true;S._pivotPending=isP?'p':'e';logs.push(`${att.ko}은(는) 배턴터치로 교체를 준비했다!`);}else logs.push("하지만 실패했다!");return;}
@@ -1677,6 +1680,7 @@ function endOfTurnCleanup(){
 
 async function runTurn(pMove,eMove){
   S._queued={p:pMove,e:eMove}; active()._acted=false; eActive()._acted=false;
+  const pm=active(),em=eActive(); // 턴 도중 끌려나온 포켓몬은 행동하지 않음
   const pMo=M(pMove),eMo=M(eMove);
   const pPri=(pMo.pr||0)+((hasAbil(active(),'prankster')&&pMo.c==='x')?1:0);
   const ePri=(eMo.pr||0)+((hasAbil(eActive(),'prankster')&&eMo.c==='x')?1:0);
@@ -1687,6 +1691,7 @@ async function runTurn(pMove,eMove){
     order=ps!==es?(faster?['p','e']:['e','p']):(Math.random()<.5?['p','e']:['e','p']);}
   for(const who of order){
     if(active().fainted||eActive().fainted)break;
+    if((who==='p'?active()!==pm:eActive()!==em))continue;
     if(who==='p') await useMove(active(),eActive(),pMove,'p');
     else await useMove(eActive(),active(),eMove,'e');
     const fr=await handleFaints();
@@ -1762,6 +1767,8 @@ function openSwitch(forced){
     if(alive.length){let cand=alive[0],best=1e9;for(const i of alive){const inFrac=maxThreat(eActive(),S.player[i]);if(inFrac<best){best=inFrac;cand=i;}}setTimeout(()=>chooseSwitch(cand),700);}}
 }
 async function chooseSwitch(i){
+  if(ONLINE&&NET&&NET.picking){NET.picking=false;enableMenu(false);msg('상대를 기다리는 중…'); // 온라인: 쓰러진 뒤 다음 포켓몬 선택
+    if(NET.role==='host')NET.pick=i;else netSend({t:'picked',id:NET.myId,idx:i});return;}
   if(ONLINE&&NET){$("menu-switch").classList.add("hidden");$("menu-main").classList.remove("hidden");netChoose(100+i);return;} // 온라인: 교체는 행동으로 전송
   const forced=forcedSwitch;const out=active();
   // 상대는 교체 전 포켓몬을 보고 기술을 고른다 (교체를 미리 알 수 없음)
@@ -1923,7 +1930,7 @@ async function applyGimmick(name){
     if(S.gimmick==='mega')await doMega(p);
     else if(S.gimmick==='dmax')await doDmax(p);
     else if(S.gimmick==='tera')await doTera(p,M(name).t);
-    else if(S.gimmick==='z'){msg(`${p.ko}은(는) Z파워를 온몸에 둘렀다!`);sfx('super');screenShake();await sleep(1000);return gimmickMove(name,'z');}
+    else if(S.gimmick==='z'){fxCutin('p','💠 Z파워!','#c9a227');msg(`${p.ko}은(는) Z파워를 온몸에 둘렀다!`);sfx('super');screenShake();await sleep(1000);return gimmickMove(name,'z');}
   }
   S.gArmed=false;
   return p.dmax>0?gimmickMove(name,'max'):name;
@@ -1931,7 +1938,7 @@ async function applyGimmick(name){
 async function doMega(p){
   const f=megaForm(p),forms=MEGA[p.dex];
   p._megaBase={ko:p.ko,spriteId:p.spriteId,base:p.base,stats:p.stats,types:p.types,origTypes:p.origTypes,ability:p.ability,abilityKo:p.abilityKo,origAbility:p.origAbility};
-  msg(`${p.ko}의 메가스톤이 반응했다!`);sfx('stat');await sleep(950);
+  fxCutin('p','💎 메가진화!','#c04fd8');msg(`${p.ko}의 메가스톤이 반응했다!`);sfx('stat');await sleep(950);
   p.ko=`메가${p._megaBase.ko}${forms.length>1?(f===forms[0]?'X':'Y'):''}`;p.spriteId=f.id;p.base=f.base;
   p.stats=Object.assign({hp:p.stats.hp},monStats(f.base,p.iv,p.set));
   p.types=f.types.slice();p.origTypes=f.types.slice();p.ability=p.origAbility=f.ab;p.abilityKo=ABKO[f.ab]||f.ab;
@@ -1946,7 +1953,7 @@ async function doMega(p){
 }
 async function doDmax(p){
   p._preMaxHp=p.maxHp;p.maxHp*=2;p.hp*=2;p.dmax=3;p._choiceLock=null;
-  sfx('super');screenShake();renderBattle();msg(`${p.ko}은(는) 다이맥스했다!`);await sleep(1200);
+  fxCutin('p','🔴 다이맥스!','#d22');sfx('super');screenShake();renderBattle();msg(`${p.ko}은(는) 다이맥스했다!`);await sleep(1200);
 }
 function endDmax(m){
   if(!m||!m._preMaxHp)return;
@@ -1954,7 +1961,7 @@ function endDmax(m){
 }
 async function doTera(p,t){
   p._teraOrig=p.origTypes.slice();p.tera=t;p.types=[t];p.origTypes=[t];
-  sfx('heal');renderBattle();msg(`${p.ko}은(는) 테라스탈해서 ${TYPE_KR[t]} 타입이 되었다!`);await sleep(1200);
+  fxCutin('p','🔷 테라스탈!',TYPE_COLOR[t]);sfx('heal');renderBattle();msg(`${p.ko}은(는) 테라스탈해서 ${TYPE_KR[t]} 타입이 되었다!`);await sleep(1200);
 }
 // 배틀이 끝나면 원래 모습으로
 function revertGimmick(m){
@@ -2199,6 +2206,22 @@ function playMoveFx(side,mo,name){
 }
 // 연속기 2타째부터: 적중 연출만
 function fxImpact(side,mo,name){try{const g=fxGeom(side);if(!g)return;const {out}=fxLayers(fxSpec(name,mo),g,mo,false);fxPlay(out.filter(l=>l.k==='i').map(l=>({...l,s:0})));}catch(e){}}
+// 피해 숫자 (급소=노랑·크게, 효과 굉장=주황, 별로=회색)
+function fxDamage(side,n,eff,crit){
+  try{if(!(n>0))return;const g=fxGeom(side);if(!g)return;if(NET&&NET.rec)NET.frames.push({dmg:[side,n,eff,crit?1:0]});
+    const col=crit?'#ffe14d':eff>=2?'#ff9c3a':(eff>0&&eff<1)?'#c9d0d8':'#fff',size=(crit?34:eff>=2?30:24)+Math.min(10,n/40),dx=(Math.random()-.5)*50;
+    fxPlay([{k:'i',s:0,d:850,o:{...g},f(c,p,o){const y=Math.max(size+6,o.b.y+8-fxOut(p)*40);c.globalAlpha=p<.7?1:(1-p)/.3;c.font=`900 ${Math.round(size*(p<.12?1+(.12-p)*5:1))}px "Trebuchet MS",sans-serif`;c.textAlign='center';c.lineWidth=5;c.strokeStyle='#14202e';
+      const t=String(Math.round(n))+(crit?'!':'');c.strokeText(t,o.b.x+dx,y);c.fillStyle=col;c.fillText(t,o.b.x+dx,y);c.globalAlpha=1;}}]);
+  }catch(e){}
+}
+// 기믹 컷인 (메가진화·Z기술·다이맥스·테라스탈)
+function fxCutin(side,text,col){
+  try{const g=fxGeom(side);if(!g)return;if(NET&&NET.rec)NET.frames.push({cut:[side,text,col]});
+    fxPlay([{k:'s',s:0,d:1000,o:{...g},f(c,p,o){const al=p<.15?p/.15:p>.85?(1-p)/.15:1,h=o.h*.3,y=o.h*.35,x=p<.2?fxL(-o.w,0,fxOut(p/.2)):p>.85?fxL(0,o.w,(p-.85)/.15):0;
+      c.globalAlpha=al*.55;c.fillStyle='#000';c.fillRect(0,0,o.w,o.h);c.globalAlpha=al;c.fillStyle=col;c.fillRect(x,y,o.w,h);c.fillStyle='#fff';c.fillRect(x,y-3,o.w,3);c.fillRect(x,y+h,o.w,3);
+      c.font=`900 ${Math.round(Math.min(44,o.w/11))}px "Trebuchet MS","Malgun Gothic",sans-serif`;c.textAlign='center';c.textBaseline='middle';c.lineWidth=7;c.strokeStyle='#14202e';c.strokeText(text,o.w/2+x,y+h/2);c.fillStyle='#fff';c.fillText(text,o.w/2+x,y+h/2);c.textBaseline='alphabetic';c.globalAlpha=1;}}]);
+  }catch(e){}
+}
 // 2턴 기술 1턴째: 시전자에게 힘이 모임
 function fxCharge(side,mo){try{const g=fxGeom(side);if(!g)return;fxPlay(fxLayers('aura^1.2@a|glow@a',g,mo,true).out);}catch(e){}}
 // 기술별 연출표 (390개)
@@ -2322,7 +2345,8 @@ function netConnect(cb){
   if(!window.mqtt){netStatus('MQTT 라이브러리를 못 불러왔어요. 인터넷 연결을 확인하세요.');return;}
   NET={client:null,myId:netId(),connected:false,role:null,matchId:null,topic:null,rec:false,frames:[],pAction:null,eAction:null,canChoose:false,q:[],qBusy:false,peers:{},pending:null,searching:false,inBattle:false,roomWaiting:false,peerReady:false};
   netStatus('서버에 연결 중…');
-  const client=mqtt.connect(NET_BROKER,{clientId:'bf_'+NET.myId,reconnectPeriod:4000,connectTimeout:9000,clean:true});
+  const client=mqtt.connect(NET_BROKER,{clientId:'bf_'+NET.myId,reconnectPeriod:4000,connectTimeout:9000,clean:true,
+    will:{topic:'bf4v1/gone/'+NET.myId,payload:'1',qos:0,retain:false}}); // 연결이 끊기면 서버가 상대에게 알림
   NET.client=client;
   client.on('connect',()=>{if(!NET.connected){NET.connected=true;netStatus('연결됨! 대전 방식을 선택하세요.');showOnlineMenu();cb&&cb();}});
   client.on('reconnect',()=>netStatus('재연결 중…'));
@@ -2378,12 +2402,15 @@ function netOnMessage(topic,m){
     else if(m.t==='ack'&&m.to===NET.myId&&NET.pending===m.mid&&!NET.matchId){netMatched(m.mid,'guest');}
     return;
   }
+  if(topic===NET.goneTopic){netPeerGone();return;}
   if(topic!==NET.topic)return;
   if(m.id===NET.myId)return; // 자기 메시지 무시
+  NET.lastSeen=Date.now();
+  if(!NET.goneTopic&&m.id){NET.goneTopic='bf4v1/gone/'+m.id;NET.client.subscribe(NET.goneTopic);}
   switch(m.t){
     case 'hello':
-      if(NET.role==='host'&&(NET.roomWaiting||true)&&!NET.peerReady){NET.peerReady=true;NET.roomWaiting=false;pvpBegin();}
-      else if(NET.role==='guest'&&!NET.peerReady){NET.peerReady=true;netSend({t:'hello',id:NET.myId,role:'guest'});}
+      if(NET.role==='host'&&(NET.roomWaiting||true)&&!NET.peerReady){NET.peerReady=true;NET.roomWaiting=false;netBeat();pvpBegin();}
+      else if(NET.role==='guest'&&!NET.peerReady){NET.peerReady=true;netBeat();netSend({t:'hello',id:NET.myId,role:'guest'});}
       break;
     case 'init': // 게스트: 드래프트 풀 수신
       if(NET.role==='guest'){NET.myPool=m.pool;onlineDraft(m.pool,(picks)=>{netSend({t:'draftdone',id:NET.myId,picks});showOnlineBattleWait('상대의 선택을 기다리는 중…');});}
@@ -2403,9 +2430,21 @@ function netOnMessage(topic,m){
     case 'end':
       if(NET.role==='guest')netEnqueue(async()=>{pvpShowResult(m.win==='e');});
       break;
-    case 'bye': if(NET.inBattle){msg('상대가 나갔습니다.');} break;
+    case 'pick': // 게스트: 쓰러진 포켓몬 대신 낼 포켓몬 선택
+      if(NET.role==='guest')netEnqueue(async()=>{ONLINE=true;NET.picking=true;openSwitch(true);msg('다음 포켓몬을 선택하세요!');});
+      break;
+    case 'picked':
+      if(NET.role==='host')NET.pick=m.idx;
+      break;
+    case 'bye': netPeerGone(); break;
   }
 }
+// 연결 확인: 3초마다 신호, 70초간 소식이 없으면 끊김 (백그라운드 탭의 타이머 지연 감안)
+const NET_TURN_MS=90000; // 한 번의 선택 제한 시간
+function netBeat(){if(NET.beat)return;NET.lastSeen=Date.now();NET.beat=setInterval(()=>{if(NET.over){clearInterval(NET.beat);return;}
+  netSend({t:'ping',id:NET.myId});if(Date.now()-NET.lastSeen>70000)netPeerGone();},3000);}
+function netPeerGone(){if(!NET||NET.over)return;pvpShowResult(true,'상대의 연결이 끊겨 승리했습니다.');}
+window.addEventListener('pagehide',()=>{if(NET&&NET.peerReady&&!NET.over)netSend({t:'bye',id:NET.myId});});
 function netEnqueue(fn){NET.q.push(fn);netDrainQ();}
 async function netDrainQ(){if(NET.qBusy)return;NET.qBusy=true;while(NET.q.length){const fn=NET.q.shift();try{await fn();}catch(e){console.error(e);}}NET.qBusy=false;}
 
@@ -2454,7 +2493,20 @@ function onlineDraft(pool,cb){
 }
 
 // ---- 배틀 진행 ----
-const waitUntil=(cond)=>new Promise(res=>{const t=setInterval(()=>{if(cond()){clearInterval(t);res();}},120);});
+const waitUntil=(cond,ms)=>new Promise(res=>{const t0=Date.now(),t=setInterval(()=>{if(cond()||(ms&&Date.now()-t0>ms)){clearInterval(t);res();}},120);});
+// 쓰러진 포켓몬을 대신할 포켓몬 선택 (선택지가 하나면 바로, 시간 초과면 첫 번째)
+async function pvpAskReplace(side,team){
+  const alive=team.map((m,i)=>i).filter(i=>!team[i].fainted);
+  if(alive.length<=1)return alive.length?alive[0]:-1;
+  const rec=NET.rec;netSend({t:'frames',id:NET.myId,fr:NET.frames});NET.frames=[];NET.rec=false; // 여기까지의 화면을 게스트에게 먼저 전달
+  NET.pick=null;
+  if(side==='p'){NET.picking=true;openSwitch(true);msg('다음 포켓몬을 선택하세요!');}
+  else{netSend({t:'pick',id:NET.myId});msg('상대가 다음 포켓몬을 고르는 중…');}
+  await waitUntil(()=>NET.pick!=null||NET.over,NET_TURN_MS);
+  NET.picking=false;enableMenu(false);NET.rec=rec;
+  return alive.includes(NET.pick)?NET.pick:alive[0];
+}
+const pvpDefault=m=>{const l=legalMoves(m);return l.length?l[0]:-1;}; // 시간 초과 시 첫 번째 기술
 function pvpBattleOver(){return S.player.every(m=>m.fainted)||S.enemy.every(m=>m.fainted);}
 async function pvpCheckFaints(){
   for(const side of ['p','e']){
@@ -2462,7 +2514,8 @@ async function pvpCheckFaints(){
     if(cur&&cur.hp<=0&&!cur.fainted){cur.fainted=true;sfx('faint');renderBattle();msg(`${cur.ko}은(는) 쓰러졌다!`);await sleep(750);
       const foe=side==='p'?eActive():active();
       if(cur.destinyBond&&foe&&!foe.fainted&&foe.hp>0){foe.hp=0;renderBattle();msg(`${cur.ko}의 길동무! ${foe.ko}도 함께 쓰러진다!`);await sleep(800);}
-      const nx=team.findIndex(m=>!m.fainted);
+      const nx=await pvpAskReplace(side,team);
+      if(NET.over)return;
       if(nx>=0){S[key]=nx;onEnter(team[nx]);renderBattle();msg(`${side==='p'?'':'상대는 '}${team[nx].ko}을(를) 내보냈다!`);await sleep(750);await onSwitchIn(team[nx],side);}
     }
   }
@@ -2482,6 +2535,7 @@ async function pvpResolve(pAct,eAct){
   const mv=(act,m)=>act.idx>=100?null:act.idx<0?'__struggle__':m.moves[act.idx];
   const pMove=mv(pAct,active()),eMove=mv(eAct,eActive());
   S._queued={p:pMove,e:eMove};active()._acted=false;eActive()._acted=false;
+  const pm=active(),em=eActive();
   const pMo=M(pMove)||{},eMo=M(eMove)||{};
   const pPri=(pMo.pr||0)+((hasAbil(active(),'prankster')&&pMo.c==='x')?1:0);
   const ePri=(eMo.pr||0)+((hasAbil(eActive(),'prankster')&&eMo.c==='x')?1:0);
@@ -2492,6 +2546,7 @@ async function pvpResolve(pAct,eAct){
     if(pvpBattleOver())break;
     if(who==='p'?!pMove:!eMove)continue; // 교체한 쪽은 기술 없음
     if(active().fainted||eActive().fainted)continue;
+    if((who==='p'?active()!==pm:eActive()!==em))continue; // 턴 도중 나온 포켓몬은 행동하지 않음
     if(who==='p')await useMove(active(),eActive(),pMove,'p');else await useMove(eActive(),active(),eMove,'e');
     await pvpCheckFaints();if(pvpBattleOver())break;
   }
@@ -2516,9 +2571,11 @@ async function pvpHostLoop(){
     NET.pAction=null;NET.eAction=null;NET.canChoose=true;
     enableMenu(true);msg('기술을 선택하세요!');
     netSend({t:'choose',id:NET.myId});
-    await waitUntil(()=>NET.pAction&&NET.eAction);
+    await waitUntil(()=>(NET.pAction&&NET.eAction)||NET.over,NET_TURN_MS);
+    if(NET.over)return;
     NET.canChoose=false;enableMenu(false);
-    await pvpResolve(NET.pAction,NET.eAction);
+    await pvpResolve(NET.pAction||{idx:pvpDefault(active())},NET.eAction||{idx:pvpDefault(eActive())});
+    if(NET.over)return;
   }
   const hostWon=!S.player.every(m=>m.fainted);
   netSend({t:'end',id:NET.myId,win:hostWon?'p':'e'});
@@ -2530,20 +2587,23 @@ function netChoose(i){
   else{netSend({t:'action',id:NET.myId,idx:i});enableMenu(false);msg('상대의 선택을 기다리는 중…');}
 }
 async function replayFrames(fr){
-  ONLINE=true;NET.inBattle=true;show("battle");
+  if(NET.over)return;
+  ONLINE=true;NET.inBattle=true;NET.canChoose=false;NET.picking=false;show("battle");
   for(const f of fr){
     if('m' in f){msg(f.m);await sleep(520);}
     else if('s' in f){applySnap(f.s);renderBattle();await sleep(170);}
+    else if('dmg' in f){const [sd,n,e,cr]=f.dmg;fxDamage(sd==='p'?'e':'p',n,e,cr);}
+    else if('cut' in f){const [sd,t,col]=f.cut;fxCutin(sd==='p'?'e':'p',t,col);}
     else if('fx' in f){const [sd,nm]=f.fx,mo=M(nm);if(mo)await sleep(playMoveFx(sd==='p'?'e':'p',mo,nm));}
   }
   enableMenu(false); // '기술 선택' 신호가 올 때까지 비활성
 }
-function pvpShowResult(iWon){
-  ONLINE=false;NET.inBattle=false;
+function pvpShowResult(iWon,note){
+  ONLINE=false;NET.inBattle=false;NET.over=true;NET.canChoose=false;NET.picking=false;
   show("result");bgmStop();
   $("result-title").textContent=iWon?'🏆 승리!':'💀 패배…';
   $("result-title").style.color=iWon?'var(--accent)':'var(--hp-red)';
-  $("result-body").innerHTML=`<p>온라인 대전 ${iWon?'승리':'패배'}!</p><p style="opacity:.7">상대: 실제 플레이어</p>`;
+  $("result-body").innerHTML=`<p>온라인 대전 ${iWon?'승리':'패배'}!</p><p style="opacity:.7">${note||'상대: 실제 플레이어'}</p>`;
   try{NET.client.unsubscribe(NET.topic);}catch(e){}
   const rb=$("btn-restart");rb.textContent='🌐 메인으로';rb.onclick=()=>location.reload();
 }

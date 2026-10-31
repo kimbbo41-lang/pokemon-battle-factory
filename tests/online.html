@@ -1,0 +1,39 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<!-- 게임 두 개를 띄워 실제 서버로 대전. 시나리오: #full 끝까지 / #bye 상대 이탈 / #afk 상대 무응답 -->
+<iframe id="A" src="game.html" width="900" height="700"></iframe>
+<iframe id="B" src="game.html" width="900" height="700"></iframe>
+<script>
+const sl=ms=>new Promise(r=>setTimeout(r,ms));
+async function until(f,ms,label){const t0=Date.now();while(Date.now()-t0<ms){try{if(f())return true;}catch(e){}await sl(200);}throw new Error('timeout: '+label);}
+window.onload=async()=>{const scn=location.hash.slice(1),R={errors:{A:[],B:[]},fail:[],info:{}};
+try{
+  const W={A:document.getElementById('A').contentWindow,B:document.getElementById('B').contentWindow};
+  for(const k of ['A','B']){W[k].addEventListener('error',e=>R.errors[k].push(String(e.message)));W[k].addEventListener('unhandledrejection',e=>R.errors[k].push('rej '+String(e.reason&&e.reason.stack||e.reason)));W[k].alert=()=>{};}
+  const $=(k,id)=>W[k].document.getElementById(id),vis=(k,id)=>!$(k,id).classList.contains('hidden'),N=k=>W[k].eval('NET');
+  $('A','btn-online').click();$('B','btn-online').click();
+  await until(()=>vis('A','online-menu')&&vis('B','online-menu'),40000,'connect');
+  $('A','btn-createroom').click();await until(()=>$('A','room-code-show').textContent.length>=4,10000,'code');
+  $('B','room-input').value=$('A','room-code-show').textContent;$('B','btn-joinroom').click();
+  await until(()=>vis('A','screen-draft')&&vis('B','screen-draft'),30000,'draft');
+  for(const k of ['A','B']){const cs=$(k,'draft-grid').querySelectorAll('.card');[0,1,2].forEach(i=>cs[i].click());$(k,'btn-confirm-draft').click();}
+  await until(()=>vis('A','screen-battle')&&N('A').canChoose,30000,'battle');
+  const moveBtn=k=>[...$(k,'moves').querySelectorAll('button')].filter(b=>!b.disabled);
+  if(scn==='bye'){await sl(1000);const t0=Date.now();const f=document.getElementById('B');f.src='about:blank';
+    await until(()=>vis('A','screen-result'),90000,'bye');R.info={ms:Date.now()-t0,title:$('A','result-title').textContent,body:$('A','result-body').textContent};
+    if(!R.info.title.includes('승리'))R.fail.push('이탈 시 승리 처리 안 됨');}
+  else if(scn==='afk'){const hp0=JSON.stringify(W.A.eval('S').player.map(m=>m.pp));moveBtn('A')[0].click();const t0=Date.now();
+    await until(()=>JSON.stringify(W.A.eval('S').player.map(m=>m.pp))!==hp0,110000,'afk');R.info={ms:Date.now()-t0};
+    if(R.info.ms<80000)R.fail.push('시간 제한 전에 진행됨');}
+  else{let picks=0,sw=0,turns=0;const t0=Date.now();
+    while(Date.now()-t0<400000&&!(vis('A','screen-result')&&vis('B','screen-result'))){
+      for(const k of ['A','B']){const n=N(k);if(!n||!vis(k,'screen-battle'))continue;
+        if(n.picking){const o=[...$(k,'switch-list').querySelectorAll('button')].filter(b=>!b.disabled);if(o.length){o[o.length-1].click();picks++;}continue;}
+        if(!n.canChoose)continue;
+        const b=$(k,'btn-switch');if(!b.disabled&&Math.random()<.2){b.click();await sl(80);const o=[...$(k,'switch-list').querySelectorAll('button')].filter(x=>!x.disabled);if(o.length){o[0].click();sw++;continue;}$(k,'btn-switch-cancel').click();}
+        const mv=moveBtn(k);if(mv.length){mv[Math.floor(Math.random()*mv.length)].click();turns++;}}
+      await sl(250);}
+    R.info={turns,sw,picks,A:$('A','result-title').textContent,B:$('B','result-title').textContent};
+    if(!R.info.A||!R.info.B||R.info.A===R.info.B)R.fail.push('승패 불일치');if(!picks)R.fail.push('교체 선택이 한 번도 없음');}
+}catch(e){R.err=String(e.stack||e);}
+window.__RES=R;};
+</script></body></html>
