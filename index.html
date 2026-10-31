@@ -406,11 +406,11 @@ let NET=null, ONLINE=false;                      // 온라인 대전 (하단 모
 
 /* ===== 능력치/개체 생성 ===== */
 function stageMul(st){return st>=0?(2+st)/2:2/(2-st);}
-// 원작 렌탈 구간: [시작,끝(세트 번호 순서), 개체값, 이름] — 오픈레벨은 강한 완전진화체 세트 1부터 시작, 5라운드부터 전설 포함 전체
-const TIERS=[[350,486,12,'1단계'],[486,622,16,'2단계'],[622,758,20,'3단계'],[758,894,24,'4단계'],[350,950,31,'전체(전설 포함)']];
+// 원작 렌탈 구간: [시작,끝(세트 번호 순서), 상대 개체값, 이름, 내 렌탈 개체값(난이도 완화: 22부터)] — 오픈레벨은 강한 완전진화체 세트 1부터 시작, 5라운드부터 전설 포함 전체
+const TIERS=[[350,486,12,'1단계',22],[486,622,16,'2단계',24],[622,758,20,'3단계',26],[758,894,24,'4단계',28],[350,950,31,'전체(전설 포함)',31]];
 const tierOf=r=>Math.min(4,Math.floor((r-1)/7));
 const tierSets=t=>DATA.sets.slice(TIERS[t][0],TIERS[t][1]);
-function ivForRound(r){return TIERS[tierOf(r)][2];} // 라운드별 개체값
+function ivForRound(r){return TIERS[tierOf(r)][4];} // 라운드별 내 렌탈 개체값
 function playerIv(r){return S.perk==='iv31'?31:ivForRound(r);} // 내 포켓몬 개체값 (7연승 보상 반영)
 function buildStat(base,iv,ev,natMod,isHp){
   const x=2*base+iv+Math.floor(ev/4);
@@ -569,10 +569,10 @@ function startDraft(reroll){
   const star=chance(STRONG_CHANCE)?pickSets(STRONG_SETS,1,exD,exI):[];star.forEach(x=>{exD.push(x.d);exI.push(x.it);});
   const ups=up?pickSets(noStrong(t+1),Math.min(up,nDraft-star.length),exD,exI):[];ups.forEach(x=>{exD.push(x.d);exI.push(x.it);});
   const base=pickSets(noStrong(t),nDraft-star.length-ups.length,exD,exI);
-  const all=shuffle([...star.map(s=>[s,TIERS[t][2]]),...ups.map(s=>[s,TIERS[t+1][2]]),...base.map(s=>[s,TIERS[t][2]])]);
+  const all=shuffle([...star.map(s=>[s,TIERS[t][4]]),...ups.map(s=>[s,TIERS[t+1][4]]),...base.map(s=>[s,TIERS[t][4]])]);
   draftSets=all.map(x=>x[0]);draftIvs=all.map(x=>x[1]);draftItems=draftSets.map(s=>s.it||'');
   draftPicks=[];
-  $("poolInfo").textContent=`(${S.round}전 · ${TIERS[t][3]} · 개체값 ${S.perk==='iv31'?31:TIERS[t][2]}${ups.length?` · 교환 보상 ${ups.length}마리`:''})${S.perk?` · 🎁 ${perkName()}`:''}${S.kept?` · 데려온 ${S.kept.ko} + 2마리 선택`:''}`;
+  $("poolInfo").textContent=`(${S.round}전 · ${TIERS[t][3]} · 개체값 ${S.perk==='iv31'?31:TIERS[t][4]}${ups.length?` · 교환 보상 ${ups.length}마리`:''})${S.perk?` · 🎁 ${perkName()}`:''}${S.kept?` · 데려온 ${S.kept.ko} + 2마리 선택`:''}`;
   const grid=$("draft-grid");grid.innerHTML="";
   draftSets.forEach((set,i)=>{
     const sp=DATA.species[set.d];
@@ -2000,7 +2000,7 @@ function openSwap(again){
     b.onclick=()=>{swapEnemyPick=i;[...ee.children].forEach(c=>c.classList.remove("selected"));b.classList.add("selected");};ee.appendChild(b);});
   S.player.forEach((m,i)=>{const b=document.createElement("button");b.className="card";b.style.padding="8px";b.innerHTML=swapCard(m);
     b.onclick=()=>{if(swapEnemyPick<0){alert("먼저 데려올 상대 포켓몬을 선택하세요!");return;}
-      const foe=S.enemy[swapEnemyPick],iv=foe.poolIv??foe.iv;
+      const foe=S.enemy[swapEnemyPick],iv=ivForRound(S.round+1); // 스카우트해도 내 렌탈 개체값 기준
       S.player[i]=makeMon(foe.set,S.perk==='iv31'?31:iv,foe.origItem);S.player[i].poolIv=iv;
       if((S.swapsR||0)<7){S.swaps=(S.swaps||0)+1;S.swapsR=(S.swapsR||0)+1;} // 라운드당 최대 7회
       if(S.perk==='scout2'&&!swapAgain&&S.enemy.length>1){swapAgain=true;S.enemy.splice(swapEnemyPick,1);openSwap(true);return;}

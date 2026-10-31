@@ -8,11 +8,11 @@ const inTier=(s,t)=>{const i=DATA.sets.indexOf(s);return i>=TIERS[t][0]&&i<TIERS
 const uniq=a=>new Set(a).size===a.length;
 window.addEventListener('load',async()=>{try{localStorage.clear();
  // 렌탈 풀·개체값·도구
- for(const [r,t,iv] of [[1,0,12],[8,1,16],[15,2,20],[22,3,24],[29,4,31],[43,4,31]]){let good=true,dup=false;
+ for(const [r,t,iv] of [[1,0,22],[8,1,24],[15,2,26],[22,3,28],[29,4,31],[43,4,31]]){let good=true,dup=false;
   for(let i=0;i<40;i++){reset();S.round=r;startDraft(false);const rest=draftSets.filter(s=>!STRONG_DEX.has(s.d));
    if(!rest.every(s=>inTier(s,t)))good=false;if(!uniq(draftSets.map(s=>s.d))||!uniq(draftSets.map(s=>s.it)))dup=true;if(!draftSets.every((s,k)=>draftItems[k]===s.it))dup=true;if(!draftIvs.every(v=>v===iv))good=false;}
   ok(`${r}전 렌탈 구간·개체값`,good);ok(`${r}전 종족·도구 중복 없음`,!dup);}
- {reset();S.round=8;S.swaps=14;let n=0;startDraft(false);n=draftIvs.filter(v=>v===20).length;ok('교환 14회 → 후보 2마리 다음 구간',n===2,draftIvs);}
+ {reset();S.round=8;S.swaps=14;let n=0;startDraft(false);n=draftIvs.filter(v=>v===26).length;ok('교환 14회 → 후보 2마리 다음 구간',n===2,draftIvs);}
  {reset();S.round=1;S.swaps=7;startDraft(false);ok('후보에 개체값 표시',document.getElementById('draft-grid').textContent.includes('개체값'));}
  // 상대 생성
  {reset();S.round=2;S.player=[mk(143,['Tackle'],'Leftovers')];S.prevFoe=[{d:6,it:'Life Orb'}];let bad=0;for(let i=0;i<200;i++){const f=genFoe(2);if(f.sets.length!==3||!uniq(f.sets.map(s=>s.d))||!uniq(f.sets.map(s=>s.it)))bad++;if(f.sets.some(s=>s.d===143||s.d===6||s.it==='Leftovers'||s.it==='Life Orb'))bad++;}ok('상대는 내 팀·직전 상대와 겹치지 않음',!bad,bad);}
