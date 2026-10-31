@@ -15,5 +15,12 @@ window.addEventListener('load',async()=>{try{
   await runTurn('Roar','Thunderbolt');M('Roar').pr=pr;ok('끌려나온 포켓몬은 행동 안 함',eActive()===e2&&e2.lastMove===null&&a.hp===a.maxHp,[e2.lastMove,a.hp]);}
  {const a=mk(143,['Tackle']),d=mk(143,['Tackle']);setup([a],[d]);let seen=[];const of=fxDamage;fxDamage=(...x)=>{seen.push(x);of(...x);};a.stage.acc=6;await useMove(a,d,'Tackle','p');fxDamage=of;ok('피해 숫자 호출',seen.length===1&&seen[0][1]>0,seen);}
  {const a=mk(143,['Bullet Seed']),d=mk(143,['Tackle']);setup([a],[d]);let n=0;const of=fxDamage;fxDamage=(...x)=>{n++;of(...x);};a.stage.acc=6;await useMove(a,d,'Bullet Seed','p');fxDamage=of;ok('연속기 타마다 숫자',n>=2,n);}
+ // 초반 약한 AI
+ {const p=mk(143,['Tackle']),e=mk(143,['Earthquake','Tackle','Splash','Thunderbolt']),e2=mk(25,['Tackle']);setup([p],[e,e2]);const count=r=>{S.round=r;const c={};for(let i=0;i<400;i++){const d=enemyDecide();c[d.type==='switch'?'switch':d.name]=(c[d.type==='switch'?'switch':d.name]||0)+1;}return c;};
+  const w=count(5);ok('약한 AI는 기술을 고르게 선택',Object.keys(w).length===4&&Object.values(w).every(n=>n>50),w);
+  const s=count(29);ok('29전부터 똑똑한 AI',(s.Earthquake||0)>200,s);const h=count(21);ok('21전은 똑똑한 AI',(h.Earthquake||0)>200,h);
+  S.round=5;const ghost=mk(94,['Tackle']);ghost.ability=ghost.origAbility='run-away';let bad=0;for(let i=0;i<200;i++)if(weakMove(e,ghost)==='Tackle')bad++;ok('안 통하는 공격기는 제외',bad===0,bad);
+  S.round=5;const f=mk(143,['Tackle','Earthquake']),t=mk(25,['Tackle']);setup([f],[t]);let c=0;for(let i=0;i<200;i++)if(playerAutoAction().idx===1)c++;ok('자동전투는 약해지지 않음',c>180,c);
+  S.round=5;const lock=mk(143,['Tackle','Splash']);lock._locked='Tackle';setup([mk(143,['Tackle'])],[lock]);lock._locked='Tackle';let lk=0;for(let i=0;i<50;i++)if(enemyDecide().name==='Tackle')lk++;ok('난동 고정은 유지',lk===50,lk);}
  {const a=mk(143,['Tackle']),d=mk(143,['Tackle']);setup([a],[d]);FXA.q=[];fxCutin('p','💎 메가진화!','#c04fd8');const l=FXA.q[0];const c=document.getElementById('fx-canvas').getContext('2d');for(const t of [.05,.5,.95])l.f(c,t,l.o);ok('컷인 그리기',!!l);FXA.q=[];fxDamage('p',123,2,true);const m=FXA.q[0];for(const t of [.05,.5,.9])m.f(c,t,m.o);ok('피해 숫자 그리기',!!m);}
 }catch(x){R.err=x.stack}document.body.insertAdjacentHTML('beforeend','<pre id="RES">RESULT '+JSON.stringify(R)+'</pre>');});
